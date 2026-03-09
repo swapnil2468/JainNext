@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Prata&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+a.active hr{
+    display: block;
+}
+
+*{
+    font-family: Outfit;
+}
+
+.prata-regular {
+    font-family: "Prata", serif;
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  ::-webkit-scrollbar{
+    display: none;
+  }
+
+  /* Custom scrollbar for filter sections */
+  .filter-scroll::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .filter-scroll::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 4px;
+    margin: 4px 0;
+  }
+
+  .filter-scroll::-webkit-scrollbar-thumb {
+    background: #fca5a5;
+    border-radius: 4px;
+  }
+
+  .filter-scroll::-webkit-scrollbar-thumb:hover {
+    background: #f87171;
+  }
+  
+  @media (max-width:640px) {
+    a.active{
+        background-color: black;
+        color: white;
+    }
+  }
