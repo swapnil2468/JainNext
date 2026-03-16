@@ -7,14 +7,7 @@ const Navbar = () => {
 
   const [visible,setVisible] = useState(false)
 
-  const {setShowSearch , getCartCount , navigate, token, setToken, setCartItems, setSelectedCategory, setSelectedSubCategory} = useContext(ShopContext)
-
-  const logout = () => {
-    navigate('/login')
-    localStorage.removeItem('token')
-    setToken('')
-    setCartItems({})
-  }
+  const {setShowSearch , getCartCount , navigate, token, logout, setSelectedCategory, setSelectedSubCategory} = useContext(ShopContext)
 
   const categories = [
     { name:"LED String Lights", subs:["Pixel String Lights","Still/Static String Lights","Multi-Color String Lights","Remote-Control String Lights"]},
@@ -26,7 +19,7 @@ const Navbar = () => {
   ]
 
   return (
-    <div className='relative border-b'>
+    <div className='relative border-b-2'>
 
       {/* NAVBAR */}
       <div className='flex items-center justify-between h-[70px] font-medium'>

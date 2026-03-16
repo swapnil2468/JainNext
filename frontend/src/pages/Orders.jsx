@@ -21,7 +21,7 @@ const STATUS_DISPLAY = {
 
 const STATUS_BADGE = {
   'New':              'bg-blue-100 text-blue-700',
-  'Shipped':          'bg-orange-100 text-orange-700',
+  'Shipped':          'bg-blue-100 text-blue-700',
   'Out for Delivery': 'bg-purple-100 text-purple-700',
   'Delivered':        'bg-green-100 text-green-700',
   'Cancelled':        'bg-red-100 text-red-700',
@@ -47,6 +47,12 @@ const Orders = () => {
     )
     observerRef.current.observe(node)
   }, [])
+
+  const [expandedOrders, setExpandedOrders] = useState({})
+
+  const toggleExpand = (orderId) => {
+    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
+  }
 
   const loadOrderData = async () => {
     try {
@@ -100,6 +106,100 @@ const Orders = () => {
     }
   }
 
+  // Compact card for Order History (Delivered / Cancelled)
+  const CompactOrderCard = ({ order }) => {
+    const isExpanded = expandedOrders[order._id]
+    // Summarise item names: "Product A, Product B" (max 2 shown)
+    const itemNames = order.items.map(i => i.name)
+    const summaryText = itemNames.length <= 2
+      ? itemNames.join(', ')
+      : `${itemNames.slice(0, 2).join(', ')} +${itemNames.length - 2} more`
+    const totalQty = order.items.reduce((s, i) => s + i.quantity, 0)
+
+    return (
+      <div className='border border-gray-200 rounded-lg mb-3 overflow-hidden'>
+        {/* Compact row — always visible */}
+        <div
+          onClick={() => toggleExpand(order._id)}
+          className='flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors'
+        >
+          {/* Thumbnail (first item image) */}
+          <img
+            className='w-14 h-14 object-cover rounded flex-shrink-0'
+            src={order.items[0]?.image?.[0]}
+            alt=''
+          />
+
+          {/* Order summary */}
+          <div className='flex-1 min-w-0'>
+            <p className='text-sm font-medium text-gray-800 truncate'>{summaryText}</p>
+            <p className='text-xs text-gray-500 mt-0.5'>
+              {new Date(order.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+              <span className='mx-1.5'>•</span>
+              {totalQty} item{totalQty > 1 ? 's' : ''}
+              <span className='mx-1.5'>•</span>
+              {currency}{order.amount}
+            </p>
+          </div>
+
+          {/* Status badge */}
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${STATUS_BADGE[order.status] || 'bg-gray-100 text-gray-600'}`}>
+            {STATUS_DISPLAY[order.status] || order.status}
+          </span>
+
+          {/* Chevron */}
+          <svg
+            className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            fill='none' viewBox='0 0 24 24' stroke='currentColor'
+          >
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 9l-7 7-7-7' />
+          </svg>
+        </div>
+
+        {/* Expanded details */}
+        {isExpanded && (
+          <div className='border-t bg-gray-50 p-4'>
+            {/* Order ID */}
+            <p className='text-xs text-gray-500 mb-3'>
+              Order ID: <span className='font-mono font-semibold text-gray-700'>#{order._id.slice(-8).toUpperCase()}</span>
+            </p>
+
+            {/* Items list */}
+            {/* Tracker */}
+            {order.status !== 'Cancelled' && (
+              <div className='mb-4'>
+                <OrderTracker order={order} showDetails={false} />
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm'>
+              <div className='flex flex-wrap items-center gap-4'>
+                <span><span className='text-gray-500'>Total:</span> <span className='font-semibold'>{currency}{order.amount}</span></span>
+                <span>
+                  <span className='text-gray-500'>Payment:</span>{' '}
+                  <span className={order.payment ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                    {order.payment ? 'Paid' : 'Pending'}
+                  </span>
+                </span>
+                <span className='text-gray-400'>{order.paymentMethod}</span>
+              </div>
+              {order.status !== 'Cancelled' && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); openModal(order) }}
+                  className='border border-red-600 px-4 py-2 text-sm font-medium rounded text-red-600 hover:bg-red-600 hover:text-white transition-all'
+                >
+                  Track Order
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Full card for Active Orders (New / Shipped / Out for Delivery)
   const OrderCard = ({ order }) => (
     <div className='py-6 border-t border-b text-gray-700'>
       {/* Header */}
@@ -125,7 +225,7 @@ const Orders = () => {
             <div className='flex-1'>
               <p className='sm:text-base font-medium'>{item.name}</p>
               <div className='flex flex-wrap items-center gap-3 mt-1 text-gray-500'>
-                <span>{currency}{item.retailPrice || item.price}</span>
+                <span>{currency}{item.retailPrice ?? item.price}</span>
                 <span>Qty: {item.quantity}</span>
                 {item.size && <span>Size: {item.size}</span>}
               </div>
@@ -147,7 +247,7 @@ const Orders = () => {
           <span><span className='text-gray-500'>Total:</span> <span className='font-semibold'>{currency}{order.amount}</span></span>
           <span>
             <span className='text-gray-500'>Payment:</span>{' '}
-            <span className={order.payment ? 'text-green-600 font-medium' : 'text-orange-500 font-medium'}>
+            <span className={order.payment ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
               {order.payment ? 'Paid' : 'Pending'}
             </span>
           </span>
@@ -214,7 +314,11 @@ const Orders = () => {
         </p>
       ) : (
         <>
-          {displayed.slice(0, visibleCount).map((order, i) => <OrderCard key={i} order={order} />)}
+          {displayed.slice(0, visibleCount).map((order, i) => (
+            activeTab === 'history'
+              ? <CompactOrderCard key={order._id} order={order} />
+              : <OrderCard key={order._id} order={order} />
+          ))}
           <div ref={sentinelRef} className='h-2' />
           {visibleCount < displayed.length && (
             <div className='flex justify-center items-center py-6 gap-2 text-gray-400 text-sm'>

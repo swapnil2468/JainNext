@@ -14,6 +14,9 @@ const addToCart = async (req,res) => {
         }
 
         const userData = await userModel.findById(userId)
+        if (!userData) {
+            return res.json({ success: false, message: "User not found" });
+        }
         let cartData = await userData.cartData;
 
         const currentQty = cartData[itemId] || 0;
@@ -45,10 +48,22 @@ const updateCart = async (req,res) => {
         
         const { userId ,itemId, quantity } = req.body
 
+        // Validate quantity bounds
+        if (quantity === undefined || quantity === null || quantity < 0 || quantity > 999) {
+            return res.json({ success: false, message: "Invalid quantity. Must be between 0 and 999." });
+        }
+
         const userData = await userModel.findById(userId)
+        if (!userData) {
+            return res.json({ success: false, message: "User not found" });
+        }
         let cartData = await userData.cartData;
 
-        cartData[itemId] = quantity
+        if (quantity === 0) {
+            delete cartData[itemId]; // Remove entry instead of keeping a 0
+        } else {
+            cartData[itemId] = quantity;
+        }
 
         await userModel.findByIdAndUpdate(userId, {cartData})
         res.json({ success: true, message: "Cart Updated" })
@@ -68,6 +83,9 @@ const getUserCart = async (req,res) => {
         const { userId } = req.body
         
         const userData = await userModel.findById(userId)
+        if (!userData) {
+            return res.json({ success: false, message: "User not found" });
+        }
         let cartData = await userData.cartData;
 
         res.json({ success: true, cartData })

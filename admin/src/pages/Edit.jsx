@@ -20,6 +20,8 @@ const Edit = ({ token }) => {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [retailPrice, setRetailPrice] = useState("")
+  const [compareAtPrice, setCompareAtPrice] = useState("")
+  const [useCases, setUseCases] = useState("")
   const [wholesalePrice, setWholesalePrice] = useState("")
   const [minimumWholesaleQuantity, setMinimumWholesaleQuantity] = useState("10")
   const [stock, setStock] = useState("")
@@ -31,6 +33,7 @@ const Edit = ({ token }) => {
   const [isDirty, setIsDirty] = useState(false)
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false)
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false)
+  const [activeTab, setActiveTab] = useState("description")
 
   // Warn on browser tab close/refresh when dirty
   useEffect(() => {
@@ -136,6 +139,8 @@ const Edit = ({ token }) => {
           setName(product.name)
           setDescription(product.description)
           setRetailPrice(product.retailPrice || product.price || "")
+          setCompareAtPrice(product.compareAtPrice || "")
+          setUseCases(product.useCases || "")
           setWholesalePrice(product.wholesalePrice || "")
           setMinimumWholesaleQuantity(product.minimumWholesaleQuantity || "10")
           setStock(product.stock || 0)
@@ -196,14 +201,8 @@ const Edit = ({ token }) => {
       return;
     }
     
-    // Validate wholesale price (required)
-    if (!wholesalePrice || Number(wholesalePrice) <= 0) {
-      toast.error('Wholesale price is required and must be greater than 0');
-      return;
-    }
-    
-    // Validate wholesale price is less than retail
-    if (Number(wholesalePrice) >= Number(retailPrice)) {
+    // Validate wholesale price (optional, but if provided must be less than retail)
+    if (wholesalePrice && Number(wholesalePrice) >= Number(retailPrice)) {
       toast.error('Wholesale price must be less than retail price');
       return;
     }
@@ -229,6 +228,8 @@ const Edit = ({ token }) => {
       formData.append("name", name)
       formData.append("description", description)
       formData.append("retailPrice", retailPrice)
+      if (compareAtPrice) formData.append("compareAtPrice", compareAtPrice)
+      if (useCases) formData.append("useCases", useCases)
       formData.append("wholesalePrice", wholesalePrice)
       formData.append("minimumWholesaleQuantity", minimumWholesaleQuantity)
       formData.append("stock", stock)
@@ -301,8 +302,36 @@ const Edit = ({ token }) => {
       </div>
 
       <div className='w-full'>
-        <p className='mb-2'>Product description</p>
-        <textarea onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }} value={description} className='w-full max-w-[500px] px-3 py-2' type="text" placeholder='Write content here' required />
+        <div className='flex gap-0 border-b mb-4'>
+          <button
+            type='button'
+            onClick={() => setActiveTab('description')}
+            className={`px-4 py-2 font-medium text-sm ${activeTab === 'description' ? 'border-b-2 border-black text-black' : 'text-gray-600'}`}
+          >
+            Description
+          </button>
+          <button
+            type='button'
+            onClick={() => setActiveTab('use-cases')}
+            className={`px-4 py-2 font-medium text-sm ${activeTab === 'use-cases' ? 'border-b-2 border-black text-black' : 'text-gray-600'}`}
+          >
+            Use Cases
+          </button>
+        </div>
+
+        {activeTab === 'description' && (
+          <div>
+            <p className='mb-2'>Product description</p>
+            <textarea onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }} value={description} className='w-full max-w-[500px] px-3 py-2' type="text" placeholder='Write content here' required />
+          </div>
+        )}
+
+        {activeTab === 'use-cases' && (
+          <div>
+            <p className='mb-2'>Use Cases (e.g., Outdoor, Indoor, Industrial, Residential, etc.)</p>
+            <textarea onChange={(e) => { setUseCases(e.target.value); setIsDirty(true) }} value={useCases} className='w-full max-w-[500px] px-3 py-2 h-32' placeholder='Enter recommended use cases for this product' />
+          </div>
+        )}
       </div>
 
       <div className='flex flex-col sm:flex-row gap-2 w-full sm:gap-8'>
@@ -340,6 +369,19 @@ const Edit = ({ token }) => {
             min="0.01"
             step="0.01"
             required
+          />
+        </div>
+
+        <div className='w-full sm:w-[150px]'>
+          <p className='mb-2'>Compare At Price (Strikethrough)</p>
+          <input 
+            onChange={(e) => { setCompareAtPrice(e.target.value); setIsDirty(true) }} 
+            value={compareAtPrice} 
+            className='w-full px-3 py-2' 
+            type="number" 
+            placeholder='30' 
+            min="0.01"
+            step="0.01"
           />
         </div>
 

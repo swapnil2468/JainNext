@@ -5,7 +5,7 @@ const getAccent = (cls = '') => {
   if (cls.includes('red'))  return { ring: 'bg-red-50',  icon: 'text-red-500'  };
   if (cls.includes('blue')) return { ring: 'bg-blue-50', icon: 'text-blue-500' };
   if (cls.includes('green'))return { ring: 'bg-green-50',icon: 'text-green-500'};
-  return { ring: 'bg-amber-50', icon: 'text-amber-500' };
+  return { ring: 'bg-gray-50', icon: 'text-gray-600' };
 };
 
 const ConfirmModal = ({

@@ -56,7 +56,7 @@ const deleteCloudinaryImage = async (imageUrl) => {
 const addProduct = async (req, res) => {
     try {
 
-        const { name, description, retailPrice, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
+        const { name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
 
         const image1 = req.files.image1 && req.files.image1[0]
         const image2 = req.files.image2 && req.files.image2[0]
@@ -119,6 +119,7 @@ const addProduct = async (req, res) => {
             description,
             category,
             retailPrice: Number(retailPrice),
+            compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
             wholesalePrice: wholesalePrice ? Number(wholesalePrice) : undefined,
             minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
             subCategory,
@@ -126,6 +127,7 @@ const addProduct = async (req, res) => {
             image: imagesUrl,
             date: Date.now(),
             specifications,
+            useCases: useCases || "",
             stock: Number(stock)
         }
 
@@ -249,17 +251,19 @@ const singleProduct = async (req, res) => {
 // function for update product
 const updateProduct = async (req, res) => {
     try {
-        const { productId, name, description, retailPrice, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
+        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
         
         let updateData = {
             name,
             description,
             retailPrice: Number(retailPrice),
+            compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
             wholesalePrice: wholesalePrice ? Number(wholesalePrice) : undefined,
             minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
             category,
             subCategory,
             bestseller: bestseller === "true" ? true : false,
+            useCases: useCases || "",
             stock: Number(stock)
         }
 
@@ -336,7 +340,11 @@ const updateProduct = async (req, res) => {
             }
         }
 
-        const product = await productModel.findByIdAndUpdate(productId, updateData, { new: true })
+        // Build proper MongoDB update: $set for defined fields, $unset to clear wholesalePrice if removed
+        const setData = Object.fromEntries(Object.entries(updateData).filter(([, v]) => v !== undefined))
+        const updateOp = { $set: setData }
+        if (!wholesalePrice) updateOp.$unset = { wholesalePrice: 1 }
+        const product = await productModel.findByIdAndUpdate(productId, updateOp, { new: true })
         res.json({ success: true, message: "Product Updated", product })
 
     } catch (error) {

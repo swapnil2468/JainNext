@@ -31,7 +31,7 @@ const ProductItem = ({id,image,name,price,wholesalePrice,minimumWholesaleQuantit
       {stock === 0 ? (
         <p className='text-red-600 text-xs font-semibold mt-1'>Out of Stock</p>
       ) : stock && stock < 20 ? (
-        <p className='text-orange-500 text-xs font-semibold mt-1'>Only {stock} left!</p>
+        <p className='text-red-600 text-xs font-semibold mt-1'>Only {stock} left!</p>
       ) : null}
       </div>
     </Link>

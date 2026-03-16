@@ -15,12 +15,15 @@ const Add = ({token}) => {
    const [name, setName] = useState("");
    const [description, setDescription] = useState("");
    const [retailPrice, setRetailPrice] = useState("");
+   const [compareAtPrice, setCompareAtPrice] = useState("");
+   const [useCases, setUseCases] = useState("");
    const [wholesalePrice, setWholesalePrice] = useState("");
    const [minimumWholesaleQuantity, setMinimumWholesaleQuantity] = useState("10");
    const [stock, setStock] = useState("");
    const [category, setCategory] = useState("LED String Lights");
    const [subCategory, setSubCategory] = useState("Pixel String Lights");
    const [bestseller, setBestseller] = useState(false);
+   const [activeTab, setActiveTab] = useState("description");
 
    // Specifications state
    const [specifications, setSpecifications] = useState({
@@ -154,6 +157,8 @@ const Add = ({token}) => {
       formData.append("name",name)
       formData.append("description",description)
       formData.append("retailPrice",retailPrice)
+      if (compareAtPrice) formData.append("compareAtPrice",compareAtPrice)
+      if (useCases) formData.append("useCases",useCases)
       if (wholesalePrice) formData.append("wholesalePrice",wholesalePrice)
       if (minimumWholesaleQuantity) formData.append("minimumWholesaleQuantity",minimumWholesaleQuantity)
       formData.append("stock",stock)
@@ -182,9 +187,12 @@ const Add = ({token}) => {
         setImage3(false)
         setImage4(false)
         setRetailPrice('')
+        setCompareAtPrice('')
+        setUseCases('')
         setWholesalePrice('')
         setMinimumWholesaleQuantity('10')
         setStock('')
+        setActiveTab("description")
         setSpecifications({
           wattage: "",
           productWattage: "",
@@ -260,8 +268,36 @@ const Add = ({token}) => {
         </div>
 
         <div className='w-full'>
-          <p className='mb-2'>Product description</p>
-          <textarea onChange={(e)=>setDescription(e.target.value)} value={description} className='w-full max-w-[500px] px-3 py-2' type="text" placeholder='Write content here' required/>
+          <div className='flex gap-0 border-b mb-4'>
+            <button
+              type='button'
+              onClick={() => setActiveTab('description')}
+              className={`px-4 py-2 font-medium text-sm ${activeTab === 'description' ? 'border-b-2 border-black text-black' : 'text-gray-600'}`}
+            >
+              Description
+            </button>
+            <button
+              type='button'
+              onClick={() => setActiveTab('use-cases')}
+              className={`px-4 py-2 font-medium text-sm ${activeTab === 'use-cases' ? 'border-b-2 border-black text-black' : 'text-gray-600'}`}
+            >
+              Use Cases
+            </button>
+          </div>
+
+          {activeTab === 'description' && (
+            <div>
+              <p className='mb-2'>Product description</p>
+              <textarea onChange={(e)=>setDescription(e.target.value)} value={description} className='w-full max-w-[500px] px-3 py-2' type="text" placeholder='Write content here' required/>
+            </div>
+          )}
+
+          {activeTab === 'use-cases' && (
+            <div>
+              <p className='mb-2'>Use Cases (e.g., Outdoor, Indoor, Industrial, Residential, etc.)</p>
+              <textarea onChange={(e)=>setUseCases(e.target.value)} value={useCases} className='w-full max-w-[500px] px-3 py-2 h-32' placeholder='Enter recommended use cases for this product' />
+            </div>
+          )}
         </div>
 
         {/* Category Selection */}
@@ -298,6 +334,19 @@ const Add = ({token}) => {
                 min="0.01"
                 step="0.01"
                 required
+              />
+            </div>
+
+            <div className='w-full sm:w-[150px]'>
+              <p className='mb-2'>Compare At Price (Strikethrough)</p>
+              <input 
+                onChange={(e) => setCompareAtPrice(e.target.value)} 
+                value={compareAtPrice} 
+                className='w-full px-3 py-2' 
+                type="number" 
+                placeholder='30' 
+                min="0.01"
+                step="0.01"
               />
             </div>
 

@@ -35,27 +35,9 @@ const PlaceOrder = () => {
         const name = event.target.name
         let value = event.target.value
         
-        // Phone number formatting (Indian format)
+        // Phone number: store raw 10 digits only; +91 is prepended at submission time
         if (name === 'phone') {
-            // Remove all non-digits
-            value = value.replace(/\D/g, '');
-            
-            // Auto-add +91 prefix if user starts typing
-            if (value.length > 0 && !value.startsWith('91')) {
-                value = '91' + value;
-            }
-            
-            // Limit to 12 digits (91 + 10 digits)
-            if (value.length > 12) {
-                value = value.slice(0, 12);
-            }
-            
-            // Format display as +91 XXXXX XXXXX
-            if (value.length > 2) {
-                value = '+91 ' + value.slice(2);
-            } else if (value.length > 0) {
-                value = '+' + value;
-            }
+            value = value.replace(/\D/g, '').slice(0, 10);
         }
         
         // Zipcode validation (Indian zipcode is 6 digits)
@@ -117,10 +99,9 @@ const PlaceOrder = () => {
             return;
         }
         
-        // Validate Indian phone number format (+91 followed by 10 digits)
-        const phoneDigits = phone.replace(/\D/g, ''); // Remove all non-digits
-        if (!phoneDigits.startsWith('91') || phoneDigits.length !== 12) {
-            toast.error('Phone number must be in format: +91 followed by 10 digits');
+        // Validate phone: must be exactly 10 digits
+        if (!/^\d{10}$/.test(phone)) {
+            toast.error('Please enter a valid 10-digit mobile number');
             return;
         }
         
@@ -148,7 +129,7 @@ const PlaceOrder = () => {
             }
 
             let orderData = {
-                address: formData,
+                address: { ...formData, phone: '+91' + formData.phone },
                 items: orderItems,
                 amount: getCartAmount() + delivery_fee
             }
@@ -212,7 +193,10 @@ const PlaceOrder = () => {
                     <input required onChange={onChangeHandler} name='zipcode' value={formData.zipcode} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Zipcode (6 digits)' pattern="[0-9]{6}" maxLength="6" />
                     <input required onChange={onChangeHandler} name='country' value={formData.country} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Country' minLength="2" maxLength="50" />
                 </div>
-                <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-brand-borderGray rounded py-1.5 px-3.5 w-full' type="text" placeholder='Phone (+91 XXXXX XXXXX)' />
+                <div className='flex border border-gray-300 rounded overflow-hidden'>
+                    <span className='bg-gray-100 text-gray-600 text-sm px-3 py-1.5 border-r border-gray-300 flex items-center select-none whitespace-nowrap'>+91</span>
+                    <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='py-1.5 px-3.5 w-full outline-none' type='tel' placeholder='10-digit mobile number' maxLength={10} pattern='[0-9]{10}' inputMode='numeric' />
+                </div>
             </div>
 
             {/* ------------- Right Side ------------------ */}

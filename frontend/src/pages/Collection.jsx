@@ -159,6 +159,7 @@ const Collection = () => {
 
   useEffect(()=>{
     sortProduct();
+    setDisplayCount(20); // Reset visible count when sort order changes
   },[sortType])
 
   // Infinite scroll handler

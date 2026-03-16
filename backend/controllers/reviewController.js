@@ -1,4 +1,5 @@
 import reviewModel from '../models/reviewModel.js';
+import userModel from '../models/userModel.js';
 import mongoose from 'mongoose';
 import { v2 as cloudinary } from "cloudinary";
 
@@ -94,7 +95,11 @@ export const getProductReviews = async (req, res) => {
 // Add a review
 export const addReview = async (req, res) => {
   try {
-    const { productId, userId, userName, rating, description, images } = req.body;
+    const { productId, userId, rating, description, images } = req.body;
+    // Fetch userName from database — never trust the client-supplied name
+    const user = await userModel.findById(userId).select('name');
+    if (!user) return res.json({ success: false, message: 'User not found' });
+    const userName = user.name;
     // Prevent duplicate review by same user for same product
     const existing = await reviewModel.findOne({ productId, userId });
     if (existing) return res.json({ success: false, message: 'You have already reviewed this product.' });

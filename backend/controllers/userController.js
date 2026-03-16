@@ -134,6 +134,11 @@ const applyForWholesale = async (req, res) => {
             return res.json({ success: false, message: "User not found" });
         }
 
+        // Prevent already-approved users from accidentally losing their approval
+        if (user.role === 'wholesale' && user.isApproved) {
+            return res.json({ success: false, message: "Your wholesale account is already approved." });
+        }
+
         // Update user to wholesale role with pending approval
         user.role = 'wholesale';
         user.isApproved = false;

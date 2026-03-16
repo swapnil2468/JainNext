@@ -4,6 +4,7 @@ const productSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: { type: String, required: true },
     retailPrice: { type: Number, required: true },
+    compareAtPrice: { type: Number },
     wholesalePrice: { type: Number },
     minimumWholesaleQuantity: { type: Number, default: 10 },
     image: { type: Array, required: true },
@@ -15,6 +16,7 @@ const productSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Mixed, 
         default: {} 
     },
+    useCases: { type: String, default: "" },
     stock: { type: Number, required: true, default: 0 }
 })
 

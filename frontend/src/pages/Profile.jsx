@@ -6,7 +6,7 @@ import { toast } from 'react-toastify'
 
 const Profile = () => {
 
-  const { backendUrl, token, navigate, userProfile } = useContext(ShopContext);
+  const { backendUrl, token, navigate, logout } = useContext(ShopContext);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showWholesaleForm, setShowWholesaleForm] = useState(false);
@@ -17,6 +17,15 @@ const Profile = () => {
     businessAddress: ''
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const isAuthErrorMessage = (message = '') => {
+    if (!message || typeof message !== 'string') return false;
+    const normalizedMessage = message.toLowerCase();
+    return normalizedMessage.includes('jwt expired') ||
+           normalizedMessage.includes('not authorized') ||
+           normalizedMessage.includes('jwt malformed') ||
+           normalizedMessage.includes('invalid token');
+  }
 
   const loadUserProfile = async () => {
     try {
@@ -30,9 +39,21 @@ const Profile = () => {
       if (response.data.success) {
         setUserData(response.data.user)
       } else {
-        toast.error(response.data.message || 'Failed to load profile')
+        const message = response.data.message || 'Failed to load profile';
+        if (isAuthErrorMessage(message)) {
+          toast.error('Session expired. Please login again.');
+          logout();
+          return;
+        }
+        toast.error(message)
       }
     } catch (error) {
+      const message = error?.response?.data?.message || error.message;
+      if (isAuthErrorMessage(message)) {
+        toast.error('Session expired. Please login again.');
+        logout();
+        return;
+      }
       console.error('Error loading profile:', error)
       toast.error('Failed to load profile. Please try again.')
     } finally {
@@ -67,9 +88,21 @@ const Profile = () => {
         // Force reload of userProfile in context
         window.location.reload();
       } else {
-        toast.error(response.data.message);
+        const message = response.data.message || 'Failed to submit application';
+        if (isAuthErrorMessage(message)) {
+          toast.error('Session expired. Please login again.');
+          logout();
+          return;
+        }
+        toast.error(message);
       }
     } catch (error) {
+      const message = error?.response?.data?.message || error.message;
+      if (isAuthErrorMessage(message)) {
+        toast.error('Session expired. Please login again.');
+        logout();
+        return;
+      }
       console.error('Error applying for wholesale:', error);
       toast.error(error.message);
     } finally {
@@ -211,8 +244,8 @@ const Profile = () => {
             )}
           </div>
         ) : userData.role === 'wholesale' && !userData.isApproved ? (
-          <div className='bg-orange-50 border border-orange-200 p-6 rounded mt-6'>
-            <h3 className='text-lg font-semibold text-orange-900 mb-2'>Wholesale Application Pending</h3>
+          <div className='bg-gray-50 border border-gray-200 p-6 rounded mt-6'>
+            <h3 className='text-lg font-semibold text-gray-900 mb-2'>Wholesale Application Pending</h3>
             <p className='text-sm text-gray-700'>
               Your wholesale account application is under review. You'll be notified once approved.
             </p>

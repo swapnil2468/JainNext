@@ -54,7 +54,11 @@ const port = process.env.PORT || 4000;
 
 // middlewares
 app.use(express.json())
-app.use(cors())
+// Restrict CORS to known origins when ALLOWED_ORIGINS is set; open in dev
+const corsOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : true;
+app.use(cors({ origin: corsOrigins }))
 
 // api endpoints
 

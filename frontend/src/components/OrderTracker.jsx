@@ -20,9 +20,9 @@ const OrderTracker = ({ order, showDetails = false }) => {
     if (!isCompleted) return 'text-gray-300 bg-gray-50'
     if (isCurrent) {
       if (order.status === 'Delivered')        return 'text-green-600 bg-green-50 ring-4 ring-green-100'
-      if (order.status === 'Shipped')          return 'text-orange-500 bg-orange-50 ring-4 ring-orange-100'
+      if (order.status === 'Shipped')          return 'text-blue-500 bg-blue-50 ring-4 ring-blue-100'
       if (order.status === 'Out for Delivery') return 'text-purple-500 bg-purple-50 ring-4 ring-purple-100'
-      return 'text-blue-500 bg-blue-50 ring-4 ring-blue-100' // New
+      return 'text-red-600 bg-red-50 ring-4 ring-red-100' // New
     }
     return 'text-green-600 bg-green-50' // past stage
   }

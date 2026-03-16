@@ -7,9 +7,8 @@ import ConfirmModal from '../components/ConfirmModal'
 
 
 // ── Status configuration ────────────────────────────────────────────────────
-// Forward-only pipeline. Cancelled is a special terminal state set by user only.
 const PIPELINE = ['New', 'Shipped', 'Out for Delivery', 'Delivered']
-const ADMIN_SELECTABLE = ['Shipped', 'Out for Delivery', 'Delivered'] // Admin picks only forward statuses
+const ADMIN_SELECTABLE = ['Shipped', 'Out for Delivery', 'Delivered']
 
 const STATUS_STYLES = {
   'New':              { active: 'bg-blue-500 text-white border-blue-500',    done: 'bg-blue-100 text-blue-600 border-blue-200'    },
@@ -19,22 +18,23 @@ const STATUS_STYLES = {
   'Cancelled':        { active: 'bg-red-500 text-white border-red-500',      done: 'bg-red-100 text-red-600 border-red-200'        },
 }
 
-// Admin tab definitions
+// Tabs in pipeline order — "All" at end as overview
 const TABS = [
-  { key: 'all',              label: 'All Orders',      filter: () => true                                },
-  { key: 'New',              label: 'Order Confirmed',  filter: o => o.status === 'New'                   },
+  { key: 'New',              label: 'New',             filter: o => o.status === 'New'                   },
   { key: 'Shipped',          label: 'Shipped',         filter: o => o.status === 'Shipped'               },
   { key: 'Out for Delivery', label: 'Out for Delivery',filter: o => o.status === 'Out for Delivery'      },
   { key: 'Delivered',        label: 'Delivered',       filter: o => o.status === 'Delivered'             },
   { key: 'Cancelled',        label: 'Cancelled',       filter: o => o.status === 'Cancelled'             },
+  { key: 'all',              label: 'All',             filter: () => true                                },
 ]
 
 const Orders = ({ token }) => {
   const PAGE_SIZE = 10
   const [orders, setOrders]               = useState([])
-  const [activeTab, setActiveTab]         = useState('all')
+  const [activeTab, setActiveTab]         = useState('New')
   const [sortBy, setSortBy]               = useState('date_desc')
   const [visibleCount, setVisibleCount]   = useState(PAGE_SIZE)
+  const [expandedOrders, setExpandedOrders] = useState({})
   const observerRef = useRef(null)
   const sentinelRef = useCallback((node) => {
     if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null }
@@ -45,13 +45,9 @@ const Orders = ({ token }) => {
     )
     observerRef.current.observe(node)
   }, [])
-  const [trackingNumbers, setTrackingNumbers]           = useState({})
-  const [estimatedDeliveries, setEstimatedDeliveries]   = useState({})
-  const [pendingStatusUpdates, setPendingStatusUpdates] = useState({}) // { orderId: selectedStatus }
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [pendingDeleteId, setPendingDeleteId]     = useState(null)
+  const [trackingNumbers, setTrackingNumbers] = useState({})
   const [showStatusConfirm, setShowStatusConfirm] = useState(false)
-  const [pendingStatusChange, setPendingStatusChange] = useState(null) // { orderId, newStatus }
+  const [pendingStatusChange, setPendingStatusChange] = useState(null)
 
   const fetchAllOrders = async () => {
     if (!token) return
@@ -60,13 +56,10 @@ const Orders = ({ token }) => {
       if (response.data.success) {
         setOrders(response.data.orders)
         const trackingData = {}
-        const deliveryData = {}
         response.data.orders.forEach(order => {
-          if (order.trackingNumber)  trackingData[order._id] = order.trackingNumber
-          if (order.estimatedDelivery) deliveryData[order._id] = order.estimatedDelivery.split('T')[0]
+          if (order.trackingNumber) trackingData[order._id] = order.trackingNumber
         })
         setTrackingNumbers(trackingData)
-        setEstimatedDeliveries(deliveryData)
       } else {
         toast.error(response.data.message)
       }
@@ -80,12 +73,9 @@ const Orders = ({ token }) => {
       const response = await axios.post(backendUrl + '/api/order/status', {
         orderId,
         status: newStatus,
-        trackingNumber: trackingNumbers[orderId] || '',
-        estimatedDelivery: estimatedDeliveries[orderId] || ''
+        trackingNumber: trackingNumbers[orderId] || ''
       }, { headers: { token } })
       if (response.data.success) {
-        // Clear the pending selection for this order
-        setPendingStatusUpdates(prev => { const n = { ...prev }; delete n[orderId]; return n })
         await fetchAllOrders()
       }
     } catch (error) {
@@ -93,9 +83,19 @@ const Orders = ({ token }) => {
     }
   }
 
-  // Just locally select a status pill — does NOT save to DB
-  const selectStatus = (orderId, status) => {
-    setPendingStatusUpdates(prev => ({ ...prev, [orderId]: status }))
+  // Auto-save tracking number without changing status
+  const saveTracking = async (orderId, currentStatus) => {
+    const saved = orders.find(o => o._id === orderId)?.trackingNumber || ''
+    const current = trackingNumbers[orderId] || ''
+    if (current === saved) return
+    try {
+      await axios.post(backendUrl + '/api/order/status', {
+        orderId,
+        status: currentStatus,
+        trackingNumber: current
+      }, { headers: { token } })
+      setOrders(prev => prev.map(o => o._id === orderId ? { ...o, trackingNumber: current } : o))
+    } catch (_) { /* silent */ }
   }
 
   const confirmStatusUpdate = () => {
@@ -105,21 +105,8 @@ const Orders = ({ token }) => {
     setPendingStatusChange(null)
   }
 
-  const deleteOrderHandler = async () => {
-    try {
-      const response = await axios.post(backendUrl + '/api/order/delete', { orderId: pendingDeleteId }, { headers: { token } })
-      if (response.data.success) {
-        toast.success('Order removed')
-        await fetchAllOrders()
-      } else {
-        toast.error(response.data.message)
-      }
-    } catch (error) {
-      toast.error(error.message)
-    } finally {
-      setShowDeleteConfirm(false)
-      setPendingDeleteId(null)
-    }
+  const toggleExpand = (orderId) => {
+    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
   }
 
   useEffect(() => { fetchAllOrders() }, [token])
@@ -144,10 +131,74 @@ const Orders = ({ token }) => {
     return tab ? orders.filter(tab.filter).length : 0
   }
 
+  // Status controls for an order
+  const StatusControls = ({ order }) => {
+    if (order.status === 'Cancelled') {
+      return (
+        <span className='inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200'>
+          ✕ Cancelled
+        </span>
+      )
+    }
+
+    if (order.status === 'New') {
+      return (
+        <div className='flex items-center gap-2'>
+          <span className='inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 border border-blue-200'>
+            <span className='w-1.5 h-1.5 rounded-full bg-blue-500 inline-block'></span>
+            New
+          </span>
+          <button
+            onClick={() => {
+              setPendingStatusChange({ orderId: order._id, newStatus: 'Shipped', oldStatus: 'New' })
+              setShowStatusConfirm(true)
+            }}
+            className='px-3 py-1 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded transition-colors'
+          >
+            Ship →
+          </button>
+        </div>
+      )
+    }
+
+    if (order.status === 'Delivered') {
+      return (
+        <span className='inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200'>
+          <span className='w-1.5 h-1.5 rounded-full bg-green-500 inline-block'></span>
+          Delivered
+        </span>
+      )
+    }
+
+    // Shipped / Out for Delivery — show forward action button
+    const nextStatus = order.status === 'Shipped' ? 'Out for Delivery' : 'Delivered'
+    const btnStyle = order.status === 'Shipped'
+      ? 'bg-purple-500 hover:bg-purple-600'
+      : 'bg-green-500 hover:bg-green-600'
+
+    return (
+      <div className='flex items-center gap-2'>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${STATUS_STYLES[order.status].active} border`}>
+          <span className='w-1.5 h-1.5 rounded-full bg-white inline-block'></span>
+          {order.status}
+        </span>
+        <button
+          onClick={() => {
+            setPendingStatusChange({ orderId: order._id, newStatus: nextStatus, oldStatus: order.status })
+            setShowStatusConfirm(true)
+          }}
+          className={`px-3 py-1 text-xs font-semibold text-white rounded transition-colors ${btnStyle}`}
+        >
+          {nextStatus} →
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* Page header */}
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6'>
+      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4'>
         <h3 className='text-xl font-semibold'>Orders</h3>
         <select
           value={sortBy}
@@ -162,7 +213,7 @@ const Orders = ({ token }) => {
       </div>
 
       {/* Tab navigation */}
-      <div className='flex flex-wrap border-b mb-6 gap-0'>
+      <div className='flex flex-wrap border-b mb-5 gap-0'>
         {TABS.map(tab => {
           const count = getTabCount(tab.key)
           const isActive = activeTab === tab.key
@@ -170,7 +221,7 @@ const Orders = ({ token }) => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
                 isActive ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -187,173 +238,105 @@ const Orders = ({ token }) => {
 
       {/* Order list */}
       {displayed.length === 0 ? (
-        <p className='text-gray-400 text-center py-12'>No orders in this category.</p>
+        <p className='text-gray-400 text-center py-12'>No orders here.</p>
       ) : (
         <>
-          {displayed.slice(0, visibleCount).map((order, index) => (
-          <div
-            className='grid grid-cols-1 sm:grid-cols-[0.5fr_2fr_1fr] lg:grid-cols-[0.5fr_2fr_1fr_1fr_1fr] gap-3 items-start border-2 border-gray-200 p-5 md:p-8 my-3 md:my-4 text-xs sm:text-sm text-gray-700'
-            key={index}
-          >
-            <img className='w-12' src={assets.parcel_icon} alt='' />
+          {displayed.slice(0, visibleCount).map((order) => {
+            const isExpanded = expandedOrders[order._id]
+            const itemSummary = order.items.map(i => `${i.name} x${i.quantity}`).join(', ')
+            const shortSummary = itemSummary.length > 60 ? itemSummary.slice(0, 57) + '...' : itemSummary
 
-            {/* Customer + items */}
-            <div>
-              <div>
-                {order.items.map((item, i) => (
-                  <p className='py-0.5' key={i}>
-                    {item.name} x {item.quantity}{item.size ? ` (${item.size})` : ''}{i < order.items.length - 1 ? ',' : ''}
-                  </p>
-                ))}
-              </div>
-              <p className='mt-3 mb-2 font-medium'>{order.address.firstName} {order.address.lastName}</p>
-              <p>{order.address.street},</p>
-              <p>{order.address.city}, {order.address.state}, {order.address.country}, {order.address.zipcode}</p>
-              <p>{order.address.phone}</p>
-            </div>
-
-            {/* Meta */}
-            <div>
-              <p className='text-sm sm:text-[15px]'>Items: {order.items.length}</p>
-              <p className='mt-3'>Method: {order.paymentMethod}</p>
-              <p>Payment: {order.payment ? 'Done' : 'Pending'}</p>
-              <p>Date: {new Date(order.date).toLocaleDateString()}</p>
-            </div>
-
-            {/* Amount */}
-            <p className='text-sm sm:text-[15px]'>{currency}{order.amount}</p>
-
-            {/* Status controls */}
-            <div className='flex flex-col gap-2'>
-              {order.status === 'Cancelled' ? (
-                /* Cancelled by customer — no status controls */
-                <span className='inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200 self-start'>
-                  ✕ Cancelled by Customer
-                </span>
-              ) : order.status === 'New' ? (
-                /* New orders — show badge only, admin can't go back to New */
-                <>
-                  <span className='inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 border border-blue-200 self-start'>
-                    <span className='w-1.5 h-1.5 rounded-full bg-blue-500 inline-block'></span>
-                    Order Confirmed
-                  </span>
-                  <p className='text-xs text-gray-400'>Advance to start processing</p>
-                  {/* Estimated delivery date for new orders */}
-                  <input
-                    type='date'
-                    value={estimatedDeliveries[order._id] || ''}
-                    onChange={(e) => setEstimatedDeliveries(prev => ({ ...prev, [order._id]: e.target.value }))}
-                    className='p-2 border rounded text-sm'
-                  />
-                  {/* Only allow advancing to Shipped */}
-                  <button
-                    onClick={() => {
-                      setPendingStatusChange({ orderId: order._id, newStatus: 'Shipped', oldStatus: 'New' })
-                      setShowStatusConfirm(true)
-                    }}
-                    className='px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded transition-colors'
-                  >
-                    Mark as Shipped →
-                  </button>
-                </>
-              ) : (
-                <>
-                  {/* Status pills — clicking only selects locally */}
-                  <div className='flex flex-wrap gap-1'>
-                    {ADMIN_SELECTABLE.map((s) => {
-                      const displayStatus = pendingStatusUpdates[order._id] || order.status
-                      const displayIdx = PIPELINE.indexOf(displayStatus)
-                      const sIdx       = PIPELINE.indexOf(s)
-                      const isSelected = displayStatus === s
-                      const isSaved    = order.status === s
-                      const isDone     = sIdx !== -1 && sIdx < displayIdx
-                      const isPending  = isSelected && !isSaved
-
-                      let style
-                      if (isSelected) {
-                        style = STATUS_STYLES[s].active + (isPending ? ' ring-2 ring-offset-1 ring-gray-400' : '')
-                      } else if (isDone) {
-                        style = STATUS_STYLES[s].done
-                      } else {
-                        style = 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200 hover:text-gray-600'
-                      }
-
-                      return (
-                        <button
-                          key={s}
-                          onClick={() => selectStatus(order._id, s)}
-                          className={`px-2 py-1 text-xs rounded-full border font-medium transition-all cursor-pointer ${style}`}
-                          title={`Select ${s}`}
-                        >
-                          {isSelected && <span className='mr-1'>●</span>}{s}
-                        </button>
-                      )
-                    })}
+            return (
+              <div key={order._id} className='border border-gray-200 rounded-lg mb-3 overflow-hidden'>
+                {/* Compact row — always visible */}
+                <div
+                  onClick={() => toggleExpand(order._id)}
+                  className='flex flex-col sm:flex-row sm:items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors'
+                >
+                  {/* Order info */}
+                  <div className='flex-1 min-w-0'>
+                    <p className='text-sm font-medium text-gray-800 truncate'>{shortSummary}</p>
+                    <p className='text-xs text-gray-500 mt-0.5'>
+                      #{order._id.slice(-8).toUpperCase()}
+                      <span className='mx-1.5'>•</span>
+                      {new Date(order.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      <span className='mx-1.5'>•</span>
+                      {currency}{order.amount}
+                      <span className='mx-1.5'>•</span>
+                      {order.paymentMethod} ({order.payment ? 'Paid' : 'Pending'})
+                    </p>
                   </div>
 
-                  {/* Pending change indicator */}
-                  {pendingStatusUpdates[order._id] && pendingStatusUpdates[order._id] !== order.status && (
-                    <p className='text-xs text-amber-600 font-medium'>
-                      Unsaved: {order.status} → {pendingStatusUpdates[order._id]}
-                    </p>
-                  )}
+                  {/* Status + action */}
+                  <div className='flex items-center gap-3 flex-shrink-0' onClick={e => e.stopPropagation()}>
+                    <StatusControls order={order} />
+                  </div>
 
-                  {/* Tracking number — only when shipped or later */}
-                  {['Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) && (
-                    <input
-                      type='text'
-                      placeholder='Tracking Number'
-                      value={trackingNumbers[order._id] || ''}
-                      onChange={(e) => setTrackingNumbers(prev => ({ ...prev, [order._id]: e.target.value }))}
-                      className='p-2 border rounded text-sm'
-                    />
-                  )}
-
-                  {/* Estimated delivery date */}
-                  {order.status !== 'Delivered' && (
-                    <input
-                      type='date'
-                      value={estimatedDeliveries[order._id] || ''}
-                      onChange={(e) => setEstimatedDeliveries(prev => ({ ...prev, [order._id]: e.target.value }))}
-                      className='p-2 border rounded text-sm'
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Action buttons */}
-              <div className='flex gap-2 mt-1 flex-wrap'>
-                {order.status !== 'Cancelled' && order.status !== 'New' && (
-                  <button
-                    onClick={() => {
-                      const newStatus = pendingStatusUpdates[order._id] || order.status
-                    setPendingStatusChange({ orderId: order._id, newStatus, oldStatus: order.status })
-                      setShowStatusConfirm(true)
-                    }}
-                    className='px-3 py-1 text-xs text-blue-600 border border-blue-300 rounded hover:bg-blue-50 transition-colors'
+                  {/* Chevron */}
+                  <svg
+                    className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill='none' viewBox='0 0 24 24' stroke='currentColor'
                   >
-                    Update Status
-                  </button>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 9l-7 7-7-7' />
+                  </svg>
+                </div>
+
+                {/* Expanded details */}
+                {isExpanded && (
+                  <div className='border-t bg-gray-50 p-4'>
+                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                      {/* Items */}
+                      <div>
+                        <p className='text-xs font-semibold text-gray-500 uppercase mb-2'>Items</p>
+                        {order.items.map((item, i) => (
+                          <p key={i} className='text-sm py-0.5'>
+                            {item.name} <span className='text-gray-400'>x{item.quantity}</span>
+                            {item.size ? <span className='text-gray-400'> ({item.size})</span> : ''}
+                          </p>
+                        ))}
+                      </div>
+
+                      {/* Customer */}
+                      <div>
+                        <p className='text-xs font-semibold text-gray-500 uppercase mb-2'>Customer</p>
+                        <p className='text-sm font-medium'>{order.address.firstName} {order.address.lastName}</p>
+                        <p className='text-sm text-gray-600'>{order.address.street}</p>
+                        <p className='text-sm text-gray-600'>{order.address.city}, {order.address.state} {order.address.zipcode}</p>
+                        <p className='text-sm text-gray-600'>{order.address.country}</p>
+                        <p className='text-sm text-gray-600 mt-1'>{order.address.phone}</p>
+                      </div>
+
+                      {/* Tracking */}
+                      <div>
+                        <p className='text-xs font-semibold text-gray-500 uppercase mb-2'>Tracking</p>
+                        {['Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) ? (
+                          <input
+                            type='text'
+                            placeholder='Enter tracking number'
+                            value={trackingNumbers[order._id] || ''}
+                            onChange={(e) => setTrackingNumbers(prev => ({ ...prev, [order._id]: e.target.value }))}
+                            onBlur={() => saveTracking(order._id, order.status)}
+                            className='w-full p-2 border rounded text-sm'
+                          />
+                        ) : (
+                          <p className='text-sm text-gray-400 italic'>Available after shipping</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 )}
-                <button
-                  onClick={() => { setPendingDeleteId(order._id); setShowDeleteConfirm(true) }}
-                  className='px-3 py-1 text-xs text-red-500 border border-red-300 rounded hover:bg-red-50 transition-colors'
-                >
-                  Remove Order
-                </button>
               </div>
-            </div>
-          </div>
-        ))}
+            )
+          })}
           <div ref={sentinelRef} className='h-2' />
           {visibleCount < displayed.length && (
             <div className='flex justify-center items-center py-6 gap-2 text-gray-400 text-sm'>
               <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin' />
-              <span>Loading more orders…</span>
+              <span>Loading more…</span>
             </div>
           )}
           {visibleCount >= displayed.length && displayed.length > PAGE_SIZE && (
-            <p className='text-center text-xs text-gray-400 py-4'>Showing all {displayed.length} orders</p>
+            <p className='text-center text-xs text-gray-400 py-4'>All {displayed.length} orders shown</p>
           )}
         </>
       )}
@@ -363,19 +346,9 @@ const Orders = ({ token }) => {
         onClose={() => { setShowStatusConfirm(false); setPendingStatusChange(null) }}
         onConfirm={confirmStatusUpdate}
         title='Update Order Status'
-        message={pendingStatusChange ? `Change status from "${pendingStatusChange.oldStatus}" to "${pendingStatusChange.newStatus}"?` : ''}
+        message={pendingStatusChange ? `Move order from "${pendingStatusChange.oldStatus}" to "${pendingStatusChange.newStatus}"?` : ''}
         confirmLabel='Yes, Update'
         confirmClassName='bg-blue-600 hover:bg-blue-700 text-white'
-      />
-
-      <ConfirmModal
-        isOpen={showDeleteConfirm}
-        onClose={() => { setShowDeleteConfirm(false); setPendingDeleteId(null) }}
-        onConfirm={deleteOrderHandler}
-        title='Remove Order'
-        message='This will permanently delete the order record. This action cannot be undone.'
-        confirmLabel='Yes, Remove'
-        confirmClassName='bg-red-600 hover:bg-red-700 text-white'
       />
     </div>
   )

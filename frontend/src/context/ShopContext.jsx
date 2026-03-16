@@ -21,6 +21,30 @@ const ShopContextProvider = (props) => {
     const navigate = useNavigate();
     const hasCleanedCart = useRef(false);
 
+    const isAuthErrorMessage = (message = '') => {
+        if (!message || typeof message !== 'string') return false;
+        const normalizedMessage = message.toLowerCase();
+        return normalizedMessage.includes('jwt expired') ||
+               normalizedMessage.includes('not authorized') ||
+               normalizedMessage.includes('jwt malformed') ||
+               normalizedMessage.includes('invalid token');
+    }
+
+    const logout = (redirectToLogin = true) => {
+        localStorage.removeItem('token');
+        setToken('');
+        setUserProfile(null);
+        setCartItems({});
+        if (redirectToLogin) {
+            navigate('/login');
+        }
+    }
+
+    const handleAuthFailure = (message = 'Session expired. Please login again.') => {
+        logout();
+        toast.error(message);
+    }
+
     // Helper to get appropriate price based on user role and quantity
     const getProductPrice = (product, quantity = 1) => {
         // Backward compatibility: support old 'price' field
@@ -218,10 +242,17 @@ const ShopContextProvider = (props) => {
             const response = await axios.post(backendUrl + '/api/cart/get',{},{headers:{token}})
             if (response.data.success) {
                 setCartItems(response.data.cartData)
+            } else if (isAuthErrorMessage(response.data.message)) {
+                handleAuthFailure('Session expired. Please login again.')
             }
         } catch (error) {
+            const message = error?.response?.data?.message || error.message
+            if (isAuthErrorMessage(message)) {
+                handleAuthFailure('Session expired. Please login again.')
+                return
+            }
             console.error('Error fetching user cart:', error)
-            toast.error(error.message)
+            toast.error(message)
         }
     }
 
@@ -230,8 +261,15 @@ const ShopContextProvider = (props) => {
             const response = await axios.post(backendUrl + '/api/user/profile', {}, { headers: { token } });
             if (response.data.success) {
                 setUserProfile(response.data.user);
+            } else if (isAuthErrorMessage(response.data.message)) {
+                handleAuthFailure('Session expired. Please login again.');
             }
         } catch (error) {
+            const message = error?.response?.data?.message || error.message
+            if (isAuthErrorMessage(message)) {
+                handleAuthFailure('Session expired. Please login again.');
+                return;
+            }
             console.error('Error fetching user profile:', error);
         }
     }
@@ -267,8 +305,15 @@ const ShopContextProvider = (props) => {
                 localStorage.removeItem('guestCart');
                 
                 return true; // Indicate sync completed
+            } else if (isAuthErrorMessage(response.data.message)) {
+                handleAuthFailure('Session expired. Please login again.')
             }
         } catch (error) {
+            const message = error?.response?.data?.message || error.message
+            if (isAuthErrorMessage(message)) {
+                handleAuthFailure('Session expired. Please login again.')
+                return false
+            }
             console.error('Error syncing cart to database:', error)
             toast.error('Failed to sync cart')
             return false;
@@ -319,7 +364,7 @@ const ShopContextProvider = (props) => {
         cartItems, addToCart, setCartItems,
         getCartCount, updateQuantity,
         getCartAmount, navigate, backendUrl,
-        setToken, token, syncCartToDatabase,
+        setToken, token, syncCartToDatabase, logout,
         userProfile, getProductPrice, canUseWholesalePrice,
         selectedCategory, setSelectedCategory,
         selectedSubCategory, setSelectedSubCategory

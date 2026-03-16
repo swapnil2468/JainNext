@@ -103,8 +103,23 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const reviewsPerPage = 6;
 
+  // Server-side accurate stats (avg and total across ALL reviews, not just paginated)
+  const [serverAvgRating, setServerAvgRating] = useState(0);
+  const [serverTotalReviews, setServerTotalReviews] = useState(0);
+
+  const fetchStats = async () => {
+    try {
+      const res = await axios.post(backendUrl + '/api/review/stats', { productId });
+      if (res.data.success) {
+        setServerAvgRating(res.data.avgRating);
+        setServerTotalReviews(res.data.totalReviews);
+      }
+    } catch (_) {}
+  };
+
   useEffect(() => {
     fetchReviews(1, true); // Reset to page 1 when component mounts or productId changes
+    fetchStats();
     if (token) fetchUserData();
     // eslint-disable-next-line
   }, [productId, token]);
@@ -223,6 +238,7 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
     if (res.data.success) {
       setUserReview(res.data.review);
       fetchReviews(1, true); // Reset to first page after adding review
+      fetchStats(); // Refresh accurate stats
       if (onReviewChange) onReviewChange();
       setReviewText('');
       setRating(5);
@@ -244,6 +260,7 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
       if (res.data.success) {
         setUserReview(null);
         fetchReviews(1, true); // Reset to first page after deleting review
+        fetchStats(); // Refresh accurate stats
         if (onReviewChange) onReviewChange();
         toast.success('Review deleted successfully');
       } else {
@@ -255,13 +272,11 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
     }
   };
 
-  // Calculate review statistics
-  const displayTotalReviews = totalReviews + (userReview ? 1 : 0);
-  const avgRating = displayTotalReviews > 0 
-    ? ((reviews.reduce((sum, r) => sum + r.rating, 0) + (userReview?.rating || 0)) / displayTotalReviews).toFixed(1)
-    : 0;
+  // Use server-side stats for accurate avg/total across ALL reviews (not just the loaded page)
+  const displayTotalReviews = serverTotalReviews;
+  const avgRating = serverAvgRating;
   
-  // Calculate rating distribution (use current loaded reviews + user review)
+  // Rating distribution — calculated from the currently-loaded reviews (best approximation without a full-breakdown endpoint)
   const allReviews = userReview ? [userReview, ...reviews] : reviews;
   const ratingCounts = [0, 0, 0, 0, 0];
   allReviews.forEach(r => {

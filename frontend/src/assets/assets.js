@@ -73,6 +73,14 @@ import contact_img from './contact_img.png'
 import razorpay_logo from './razorpay_logo.png'
 import cross_icon from './cross_icon.png'
 
+// Hero carousel images
+import img12 from './12.jpg'
+import img13 from './13.jpg'
+import img14 from './14.jpg'
+import img15 from './15.jpg'
+import img16 from './16.jpg'
+import newone from './newone.png'
+
 export const assets = {
     logo,
     hero_img,
@@ -90,7 +98,13 @@ export const assets = {
     about_img,
     contact_img,
     razorpay_logo,
-    cross_icon
+    cross_icon,
+    img12,
+    img13,
+    img14,
+    img15,
+    img16,
+    newone
 }
 
 export const products = [

@@ -65,6 +65,18 @@ const Cart = () => {
       updateQuantity(issue.id, issue.availableStock);
     });
     setShowStockModal(false);
+
+    // Check if any items remain after the stock correction
+    const hasRemainingItems = cartData.some(item => {
+      const issue = stockIssues.find(i => i.id === item._id);
+      return issue ? issue.availableStock > 0 : true;
+    });
+
+    if (!hasRemainingItems) {
+      toast.info('All items in your cart are out of stock and have been removed.');
+      return;
+    }
+
     toast.success('Cart updated! You can now proceed to checkout.');
     // Navigate to checkout after a brief delay to show the update
     setTimeout(() => {
@@ -81,8 +93,8 @@ const Cart = () => {
           {/* Body */}
           <div className="px-6 pt-8 pb-4 text-center">
             {/* Icon */}
-            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
             </div>
@@ -92,7 +104,7 @@ const Cart = () => {
             {/* Issue list */}
             <div className="space-y-2 text-left mb-2">
               {stockIssues.map((issue, index) => (
-                <div key={index} className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+                <div key={index} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                   <p className="font-medium text-gray-800 text-sm">{issue.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     In cart: <span className="font-semibold text-red-500">{issue.requestedQty}</span>

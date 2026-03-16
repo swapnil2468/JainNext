@@ -164,9 +164,9 @@ const Wholesale = () => {
               </button>
             </div>
           ) : userProfile?.role === 'wholesale' && !userProfile?.isApproved ? (
-            <div className='bg-orange-50 border border-orange-200 p-8 rounded-lg text-center'>
+            <div className='bg-gray-50 border border-gray-200 p-8 rounded-lg text-center'>
               <div className='text-6xl mb-4'>⏳</div>
-              <h3 className='text-2xl font-semibold text-orange-900 mb-2'>Application Under Review</h3>
+              <h3 className='text-2xl font-semibold text-gray-900 mb-2'>Application Under Review</h3>
               <p className='text-gray-700 mb-4'>Your wholesale application is being reviewed. You'll be notified once approved.</p>
               <p className='text-sm text-gray-600'>Expected approval time: 24-48 hours</p>
             </div>

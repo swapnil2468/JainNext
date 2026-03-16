@@ -3,6 +3,7 @@ import userModel from "../models/userModel.js";
 
 import razorpay from 'razorpay'
 import productModel from '../models/productModel.js'
+import { sendOrderConfirmationEmail, sendAdminNewOrderEmail, sendOrderStatusEmail } from '../utils/orderEmails.js'
 
 // global variables
 const currency = 'inr'
@@ -51,7 +52,11 @@ const placeOrder = async (req,res) => {
             statusHistory: [{ status: 'New', timestamp: new Date() }]
         }
 
-        // Stock validation passed, now deduct stock
+        // Save order first — deduct stock only after a successful save
+        const newOrder = new orderModel(orderData)
+        await newOrder.save()
+
+        // Order saved — now deduct stock
         for (const item of items) {
             await productModel.findByIdAndUpdate(
                 item._id,
@@ -60,10 +65,14 @@ const placeOrder = async (req,res) => {
             );
         }
 
-        const newOrder = new orderModel(orderData)
-        await newOrder.save()
-
         await userModel.findByIdAndUpdate(userId,{cartData:{}})
+
+        // Send confirmation email to customer + alert to admin (fire-and-forget)
+        const user = await userModel.findById(userId).select('name email')
+        if (user) {
+            sendOrderConfirmationEmail(newOrder, user.email, user.name)
+            sendAdminNewOrderEmail(newOrder, user.name, user.email)
+        }
 
         res.json({success:true,message:"Order Placed"})
 
@@ -171,6 +180,15 @@ const verifyRazorpay = async (req,res) => {
             // Mark payment as successful and clear cart
             await orderModel.findByIdAndUpdate(orderInfo.receipt,{payment:true});
             await userModel.findByIdAndUpdate(userId,{cartData:{}})
+
+            // Send confirmation email (fire-and-forget)
+            const paidOrder = await orderModel.findById(orderInfo.receipt)
+            const paidUser  = await userModel.findById(userId).select('name email')
+            if (paidOrder && paidUser) {
+                sendOrderConfirmationEmail(paidOrder, paidUser.email, paidUser.name)
+                sendAdminNewOrderEmail(paidOrder, paidUser.name, paidUser.email)
+            }
+
             res.json({ success: true, message: "Payment Successful" })
         } else {
             // Payment failed - no stock deduction needed since it wasn't deducted yet
@@ -218,29 +236,36 @@ const userOrders = async (req,res) => {
 const updateStatus = async (req,res) => {
     try {
         
-        const { orderId, status, trackingNumber, estimatedDelivery } = req.body
+        const { orderId, status, trackingNumber } = req.body
 
-        const updateData = { status }
-        
-        // Add tracking number if provided
-        if (trackingNumber !== undefined) {
-            updateData.trackingNumber = trackingNumber
-        }
-        
-        // Add estimated delivery if provided
-        if (estimatedDelivery) {
-            updateData.estimatedDelivery = estimatedDelivery
-        }
-        
-        // Push new status to history
-        updateData.$push = { 
-            statusHistory: { 
-                status, 
-                timestamp: new Date() 
-            } 
+        const existingOrder = await orderModel.findById(orderId).select('status')
+        if (!existingOrder) return res.json({ success: false, message: 'Order not found' })
+
+        const statusChanged = existingOrder.status !== status
+
+        // Build $set fields
+        const setFields = { status }
+        if (trackingNumber !== undefined) setFields.trackingNumber = trackingNumber
+
+        const updateOp = { $set: setFields }
+        // Only append to history when status actually changes (not a tracking-only save)
+        if (statusChanged) {
+            updateOp.$push = { statusHistory: { status, timestamp: new Date() } }
         }
 
-        await orderModel.findByIdAndUpdate(orderId, updateData)
+        await orderModel.findByIdAndUpdate(orderId, updateOp)
+
+        // Notify customer by email only on actual status change (fire-and-forget)
+        if (statusChanged) {
+            const updatedOrder = await orderModel.findById(orderId)
+            if (updatedOrder) {
+                const customer = await userModel.findById(updatedOrder.userId).select('name email')
+                if (customer) {
+                    sendOrderStatusEmail(updatedOrder, customer.email, customer.name, status, trackingNumber)
+                }
+            }
+        }
+
         res.json({success:true,message:'Status Updated'})
 
     } catch (error) {
@@ -298,6 +323,13 @@ const cancelOrder = async (req, res) => {
             status: 'Cancelled',
             $push: { statusHistory: { status: 'Cancelled', timestamp: new Date() } }
         })
+
+        // Notify customer (fire-and-forget)
+        const cancelledOrder = await orderModel.findById(orderId)
+        const cancelledUser  = await userModel.findById(userId).select('name email')
+        if (cancelledOrder && cancelledUser) {
+            sendOrderStatusEmail(cancelledOrder, cancelledUser.email, cancelledUser.name, 'Cancelled')
+        }
 
         res.json({ success: true, message: 'Order cancelled successfully' })
 
