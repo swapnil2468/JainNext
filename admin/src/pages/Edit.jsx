@@ -34,6 +34,8 @@ const Edit = ({ token }) => {
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false)
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState("description")
+  const [trackInventory, setTrackInventory] = useState(true);
+  const [allowBackorders, setAllowBackorders] = useState(false);
 
   // Warn on browser tab close/refresh when dirty
   useEffect(() => {
@@ -270,182 +272,228 @@ const Edit = ({ token }) => {
   }
 
   return (
-    <form onSubmit={onSubmitHandler} className='flex flex-col w-full items-start gap-3'>
-      <h1 className='text-2xl font-semibold mb-4'>Edit Product</h1>
-
-      <div>
-        <p className='mb-2'>Upload Images (Leave empty to keep existing)</p>
-
-        <div className='flex gap-2'>
-          <label htmlFor="image1">
-            <img className='w-20' src={!image1 ? (existingImages[0] || assets.upload_area) : URL.createObjectURL(image1)} alt="" />
-            <input onChange={(e) => { setImage1(e.target.files[0]); setIsDirty(true) }} type="file" id="image1" hidden />
-          </label>
-          <label htmlFor="image2">
-            <img className='w-20' src={!image2 ? (existingImages[1] || assets.upload_area) : URL.createObjectURL(image2)} alt="" />
-          <input onChange={(e) => { setImage2(e.target.files[0]); setIsDirty(true) }} type="file" id="image2" hidden />
-          </label>
-          <label htmlFor="image3">
-            <img className='w-20' src={!image3 ? (existingImages[2] || assets.upload_area) : URL.createObjectURL(image3)} alt="" />
-          <input onChange={(e) => { setImage3(e.target.files[0]); setIsDirty(true) }} type="file" id="image3" hidden />
-          </label>
-          <label htmlFor="image4">
-            <img className='w-20' src={!image4 ? (existingImages[3] || assets.upload_area) : URL.createObjectURL(image4)} alt="" />
-          <input onChange={(e) => { setImage4(e.target.files[0]); setIsDirty(true) }} type="file" id="image4" hidden />
-          </label>
-        </div>
+    <div className='w-full min-h-screen bg-gray-100 p-8'>
+      {/* Section Title */}
+      <div className='mb-8'>
+        <h2 className='text-2xl font-bold mb-2 text-gray-900'>Edit Product Listing</h2>
+        <p className='text-gray-600'>Update detailed information about your lighting fixture.</p>
       </div>
 
-      <div className='w-full'>
-        <p className='mb-2'>Product name</p>
-        <input onChange={(e) => { setName(e.target.value); setIsDirty(true) }} value={name} className='w-full max-w-[500px] px-3 py-2' type="text" placeholder='Type here' required />
-      </div>
-
-      <div className='w-full'>
-        <div className='flex gap-0 border-b mb-4'>
-          <button
-            type='button'
-            onClick={() => setActiveTab('description')}
-            className={`px-4 py-2 font-medium text-sm ${activeTab === 'description' ? 'border-b-2 border-black text-black' : 'text-gray-600'}`}
-          >
-            Description
-          </button>
-          <button
-            type='button'
-            onClick={() => setActiveTab('use-cases')}
-            className={`px-4 py-2 font-medium text-sm ${activeTab === 'use-cases' ? 'border-b-2 border-black text-black' : 'text-gray-600'}`}
-          >
-            Use Cases
-          </button>
-        </div>
-
-        {activeTab === 'description' && (
-          <div>
-            <p className='mb-2'>Product description</p>
-            <textarea onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }} value={description} className='w-full max-w-[500px] px-3 py-2' type="text" placeholder='Write content here' required />
+      {/* Main Grid */}
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+        {/* LEFT COLUMN */}
+        <div className='lg:col-span-2 space-y-8'>
+          {/* Product Images Box */}
+          <div className='bg-white rounded-2xl p-6'>
+            <h3 className='text-lg font-semibold mb-4 text-gray-900'>Product Images</h3>
+            <div className='flex gap-4 mb-4'>
+              <label htmlFor="image1" className='cursor-pointer'>
+                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image1 ? (existingImages[0] || assets.upload_area) : URL.createObjectURL(image1)} alt="Product 1" />
+                <input onChange={(e) => { setImage1(e.target.files[0]); setIsDirty(true) }} type="file" id="image1" hidden />
+              </label>
+              <label htmlFor="image2" className='cursor-pointer'>
+                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image2 ? (existingImages[1] || assets.upload_area) : URL.createObjectURL(image2)} alt="Product 2" />
+                <input onChange={(e) => { setImage2(e.target.files[0]); setIsDirty(true) }} type="file" id="image2" hidden />
+              </label>
+              <label htmlFor="image3" className='cursor-pointer'>
+                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image3 ? (existingImages[2] || assets.upload_area) : URL.createObjectURL(image3)} alt="Product 3" />
+                <input onChange={(e) => { setImage3(e.target.files[0]); setIsDirty(true) }} type="file" id="image3" hidden />
+              </label>
+              <label htmlFor="image4" className='cursor-pointer'>
+                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image4 ? (existingImages[3] || assets.upload_area) : URL.createObjectURL(image4)} alt="Product 4" />
+                <input onChange={(e) => { setImage4(e.target.files[0]); setIsDirty(true) }} type="file" id="image4" hidden />
+              </label>
+            </div>
+            <p className='text-xs text-gray-500'>Leave empty to keep existing images</p>
           </div>
-        )}
 
-        {activeTab === 'use-cases' && (
-          <div>
-            <p className='mb-2'>Use Cases (e.g., Outdoor, Indoor, Industrial, Residential, etc.)</p>
-            <textarea onChange={(e) => { setUseCases(e.target.value); setIsDirty(true) }} value={useCases} className='w-full max-w-[500px] px-3 py-2 h-32' placeholder='Enter recommended use cases for this product' />
+          {/* Product Information Box */}
+          <div className='bg-white rounded-2xl p-6'>
+            <h3 className='text-lg font-semibold mb-4 text-gray-900'>Product Information</h3>
+            
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Product Name</label>
+              <input onChange={(e) => { setName(e.target.value); setIsDirty(true) }} value={name} className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' type="text" placeholder='e.g. Modern Brass Pendant Light' required/>
+            </div>
+
+            <div className='grid grid-cols-2 gap-4 mb-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-900 mb-2'>Category</label>
+                <select onChange={handleCategoryChange} value={category} className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500'>
+                  {Object.keys(categoryOptions).map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-900 mb-2'>Sub Category</label>
+                <select onChange={(e) => { setSubCategory(e.target.value); setIsDirty(true) }} value={subCategory} className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500'>
+                  {categoryOptions[category].map((subCat) => (
+                    <option key={subCat} value={subCat}>{subCat}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Tabs for Description/Use Cases */}
+            <div className='mb-4'>
+              <div className='flex gap-0 border-b mb-4'>
+                <button
+                  type='button'
+                  onClick={() => setActiveTab('description')}
+                  className={`px-4 py-2 font-medium text-sm ${activeTab === 'description' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-600'}`}
+                >
+                  Product Description
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setActiveTab('use-cases')}
+                  className={`px-4 py-2 font-medium text-sm ${activeTab === 'use-cases' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-600'}`}
+                >
+                  Use Cases / Application
+                </button>
+              </div>
+
+              {activeTab === 'description' && (
+                <div>
+                  <label className='block text-sm font-medium text-gray-900 mb-2'>Product Description</label>
+                  <textarea onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }} value={description} className='w-full px-4 py-3 border border-gray-300 rounded-2xl h-32 focus:outline-none focus:ring-2 focus:ring-red-500' placeholder='Describe the product material, design features, and installation requirements...' required/>
+                </div>
+              )}
+
+              {activeTab === 'use-cases' && (
+                <div>
+                  <label className='block text-sm font-medium text-gray-900 mb-2'>Use Cases / Application</label>
+                  <textarea onChange={(e) => { setUseCases(e.target.value); setIsDirty(true) }} value={useCases} className='w-full px-4 py-3 border border-gray-300 rounded-2xl h-32 focus:outline-none focus:ring-2 focus:ring-red-500' placeholder='e.g., Ideal for modern living rooms, hotel lobbies, or high-ceiling dining areas...' />
+                </div>
+              )}
+            </div>
           </div>
-        )}
+
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className='lg:col-span-1 space-y-8'>
+          {/* Pricing Details Box */}
+          <div className='bg-white rounded-2xl p-6'>
+            <h3 className='text-lg font-semibold mb-4 text-gray-900'>Pricing Details</h3>
+            
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Retail Price</label>
+              <div className='flex items-center'>
+                <span className='text-lg font-semibold text-gray-700 mr-2'>₹</span>
+                <input 
+                  onChange={(e) => { setRetailPrice(e.target.value); setIsDirty(true) }} 
+                  value={retailPrice} 
+                  className='flex-1 px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' 
+                  type="number" 
+                  placeholder='0.00' 
+                  min="0.01"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Compare at Price</label>
+              <div className='flex items-center'>
+                <span className='text-lg font-semibold text-gray-700 mr-2'>₹</span>
+                <input 
+                  onChange={(e) => { setCompareAtPrice(e.target.value); setIsDirty(true) }} 
+                  value={compareAtPrice} 
+                  className='flex-1 px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' 
+                  type="number" 
+                  placeholder='0.00' 
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Wholesale Price</label>
+              <div className='flex items-center'>
+                <span className='text-lg font-semibold text-gray-700 mr-2'>₹</span>
+                <input 
+                  onChange={(e) => { setWholesalePrice(e.target.value); setIsDirty(true) }} 
+                  value={wholesalePrice} 
+                  className='flex-1 px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' 
+                  type="number" 
+                  placeholder='0.00' 
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Min Wholesale Qty</label>
+              <input 
+                onChange={(e) => { setMinimumWholesaleQuantity(e.target.value); setIsDirty(true) }} 
+                value={minimumWholesaleQuantity} 
+                className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' 
+                type="number" 
+                placeholder='10' 
+                min="1"
+                step="1"
+              />
+            </div>
+          </div>
+
+          {/* Inventory Box */}
+          <div className='bg-white rounded-2xl p-6'>
+            <h3 className='text-lg font-semibold mb-4 text-gray-900'>Inventory</h3>
+            
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Stock Availability</label>
+              <input 
+                onChange={(e) => { setStock(e.target.value); setIsDirty(true) }} 
+                value={stock} 
+                className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' 
+                type="number" 
+                placeholder='0' 
+                min="0"
+                step="1"
+                required
+              />
+            </div>
+
+            <div className='space-y-3'>
+              <label className='flex items-center cursor-pointer'>
+                <input onChange={() => setTrackInventory(prev => !prev)} checked={trackInventory} type="checkbox" className='w-4 h-4 rounded accent-red-600' />
+                <span className='ml-3 text-sm font-medium text-gray-900'>Track inventory for this product</span>
+              </label>
+
+              <label className='flex items-center cursor-pointer'>
+                <input onChange={() => setAllowBackorders(prev => !prev)} checked={allowBackorders} type="checkbox" className='w-4 h-4 rounded accent-red-600' />
+                <span className='ml-3 text-sm font-medium text-gray-900'>Allow backorders when out of stock</span>
+              </label>
+
+              <label className='flex items-center cursor-pointer'>
+                <input onChange={() => { setBestseller(prev => !prev); setIsDirty(true) }} checked={bestseller} type="checkbox" className='w-4 h-4 rounded accent-red-600' />
+                <span className='ml-3 text-sm font-medium text-gray-900'>Add to bestseller</span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className='flex flex-col sm:flex-row gap-2 w-full sm:gap-8'>
+      {/* Product Specifications Box - Full Width */}
+      <div className='bg-white rounded-2xl p-6 mt-8'>
+        <h3 className='text-lg font-semibold mb-2 text-gray-900'>Product Specifications</h3>
+        <p className='text-sm text-gray-500 mb-6'>Leave blank if not applicable</p>
 
-        <div>
-          <p className='mb-2'>Product category</p>
-          <select onChange={handleCategoryChange} value={category} className='w-full px-3 py-2'>
-            {Object.keys(categoryOptions).map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <p className='mb-2'>Sub category</p>
-          <select onChange={(e) => { setSubCategory(e.target.value); setIsDirty(true) }} value={subCategory} className='w-full px-3 py-2'>
-            {categoryOptions[category].map((subCat) => (
-              <option key={subCat} value={subCat}>{subCat}</option>
-            ))}
-          </select>
-        </div>
-
-      </div>
-
-      {/* Pricing Section */}
-      <div className='flex flex-col sm:flex-row gap-2 w-full sm:gap-8'>
-        <div className='w-full sm:w-[150px]'>
-          <p className='mb-2'>Retail Price *</p>
-          <input 
-            onChange={(e) => { setRetailPrice(e.target.value); setIsDirty(true) }} 
-            value={retailPrice} 
-            className='w-full px-3 py-2' 
-            type="number" 
-            placeholder='25' 
-            min="0.01"
-            step="0.01"
-            required
-          />
-        </div>
-
-        <div className='w-full sm:w-[150px]'>
-          <p className='mb-2'>Compare At Price (Strikethrough)</p>
-          <input 
-            onChange={(e) => { setCompareAtPrice(e.target.value); setIsDirty(true) }} 
-            value={compareAtPrice} 
-            className='w-full px-3 py-2' 
-            type="number" 
-            placeholder='30' 
-            min="0.01"
-            step="0.01"
-          />
-        </div>
-
-        <div className='w-full sm:w-[150px]'>
-          <p className='mb-2'>Wholesale Price *</p>
-          <input 
-            onChange={(e) => { setWholesalePrice(e.target.value); setIsDirty(true) }} 
-            value={wholesalePrice} 
-            className='w-full px-3 py-2' 
-            type="number" 
-            placeholder='20' 
-            min="0.01"
-            step="0.01"
-            required
-          />
-        </div>
-
-        <div className='w-full sm:w-[150px]'>
-          <p className='mb-2'>Min Wholesale Qty</p>
-          <input 
-            onChange={(e) => { setMinimumWholesaleQuantity(e.target.value); setIsDirty(true) }} 
-            value={minimumWholesaleQuantity} 
-            className='w-full px-3 py-2' 
-            type="number" 
-            placeholder='10' 
-            min="1"
-            step="1"
-          />
-        </div>
-
-        <div className='w-full sm:w-[120px]'>
-          <p className='mb-2'>Stock *</p>
-          <input 
-            onChange={(e) => { setStock(e.target.value); setIsDirty(true) }} 
-            value={stock} 
-            className='w-full px-3 py-2' 
-            type="number" 
-            min="0" 
-            step="1" 
-            placeholder='0' 
-            required 
-          />
-        </div>
-      </div>
-
-      <div className='flex gap-2 mt-2'>
-        <input onChange={() => { setBestseller(prev => !prev); setIsDirty(true) }} checked={bestseller} type="checkbox" id='bestseller' />
-        <label className='cursor-pointer' htmlFor="bestseller">Add to bestseller</label>
-      </div>
-
-      {/* ----------- Product Specifications Section ----------- */}
-      <div className='w-full mt-8 border-t pt-8'>
-        <h2 className='text-lg font-semibold mb-6'>Product Specifications (Leave blank if not applicable)</h2>
-
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-[900px]'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
           {Object.keys(specifications).map((key) => (
             <div key={key}>
-              <p className='mb-2 text-sm'>{specificationLabels[key]}</p>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>{specificationLabels[key]}</label>
               <input
                 type="text"
                 name={key}
                 value={specifications[key]}
                 onChange={handleSpecificationChange}
-                className='w-full px-3 py-2 border border-gray-300 rounded'
+                className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500'
                 placeholder={`Enter ${specificationLabels[key]}`}
               />
             </div>
@@ -453,21 +501,22 @@ const Edit = ({ token }) => {
         </div>
       </div>
 
-      <div className='flex gap-2 mt-4'>
+      {/* Footer Buttons */}
+      <div className='flex gap-3 mt-8 mx-auto max-w-6xl'>
         <button 
-          type="submit" 
+          onClick={onSubmitHandler}
           disabled={submitting}
-          className='w-32 py-3 bg-black text-white disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+          className='flex-1 py-3 bg-red-600 text-white rounded-2xl hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2'
         >
           {submitting ? (
             <>
               <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
-              Updating...
+              Saving...
             </>
-          ) : 'UPDATE'}
+          ) : '✓ Save Changes'}
         </button>
         <button 
-          type="button" 
+          type='button'
           onClick={() => {
             if (isDirty) {
               setShowUnsavedConfirm(true)
@@ -476,9 +525,9 @@ const Edit = ({ token }) => {
             }
           }}
           disabled={submitting}
-          className='w-28 py-3 bg-gray-400 text-white disabled:bg-gray-300 disabled:cursor-not-allowed'
+          className='flex-1 py-3 bg-white text-gray-800 border border-gray-300 rounded-2xl hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed font-semibold'
         >
-          CANCEL
+          Cancel
         </button>
       </div>
 
@@ -503,9 +552,9 @@ const Edit = ({ token }) => {
         confirmLabel='Leave Without Saving'
         confirmClassName='bg-red-600 hover:bg-red-700 text-white'
       />
-
-    </form>
+    </div>
   )
 }
 
 export default Edit
+

@@ -17,7 +17,8 @@ const productSchema = new mongoose.Schema({
         default: {} 
     },
     useCases: { type: String, default: "" },
-    stock: { type: Number, required: true, default: 0 }
+    stock: { type: Number, required: true, default: 0 },
+    status: { type: String, enum: ['active', 'draft', 'archived'], default: 'active' }
 })
 
 const productModel  = mongoose.models.product || mongoose.model("product",productSchema);

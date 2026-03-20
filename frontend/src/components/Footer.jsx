@@ -1,110 +1,151 @@
-import React from 'react'
-import { assets } from '../assets/assets'
-import { FaFacebookF, FaInstagram, FaYoutube, FaTwitter } from "react-icons/fa"
-import { useNavigate } from 'react-router-dom'
-
-const Footer = () => {
-  const navigate = useNavigate();
+export default function Footer() {
   return (
-    <div className='bg-red-100 mt-40 -mx-4 sm:-mx-[5vw] md:-mx-[7vw] lg:-mx-[9vw]'>
-
-      {/* MAIN FOOTER CONTENT */}
-      <div className='px-6 sm:px-8 lg:px-16 py-8'>
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-12 mb-3'>
-
-          {/* ABOUT SECTION */}
-          <div className='lg:col-span-1'>
-            <img src={assets.logo} className='mb-5 w-32' alt="logo" />
-            <p className='text-base text-gray-700 leading-7 mb-4 font-medium'>
-              Premium lighting solutions for your space.
+    <footer className="bg-gradient-to-br from-neutral-900 via-rose-950 to-neutral-900 text-white pt-16 pb-8 px-6 lg:px-8">
+      <div className="w-full px-6 lg:px-8">
+        {/* Main Footer Content */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+          {/* Brand Column */}
+          <div className="space-y-6">
+            <span className="text-2xl font-light tracking-tight text-white">
+              JAIN<span className="font-medium text-rose-400">NEXT</span>
+            </span>
+            <p className="text-neutral-400 text-sm leading-relaxed">
+              Premium lighting solutions designed to illuminate and elevate your space with timeless elegance.
             </p>
-            
-            {/* SOCIAL MEDIA */}
-            <div className='flex gap-4'>
-              <a href="#" className='w-12 h-12 rounded-full bg-red-100 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all duration-300 text-gray-700'>
-                <FaFacebookF size={20} />
+            <div className="flex gap-4">
+              <a
+                href="#facebook"
+                className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full hover:bg-rose-600 transition-colors duration-200"
+                aria-label="Facebook"
+              >
+                <i className="ri-facebook-fill"></i>
               </a>
-              <a href="#" className='w-12 h-12 rounded-full bg-red-100 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all duration-300 text-gray-700'>
-                <FaInstagram size={20} />
+              <a
+                href="#instagram"
+                className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full hover:bg-rose-600 transition-colors duration-200"
+                aria-label="Instagram"
+              >
+                <i className="ri-instagram-line"></i>
               </a>
-              <a href="#" className='w-12 h-12 rounded-full bg-red-100 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all duration-300 text-gray-700'>
-                <FaYoutube size={20} />
+              <a
+                href="#pinterest"
+                className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full hover:bg-rose-600 transition-colors duration-200"
+                aria-label="Pinterest"
+              >
+                <i className="ri-pinterest-fill"></i>
               </a>
-              <a href="#" className='w-12 h-12 rounded-full bg-red-100 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all duration-300 text-gray-700'>
-                <FaTwitter size={20} />
+              <a
+                href="#twitter"
+                className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full hover:bg-rose-600 transition-colors duration-200"
+                aria-label="Twitter"
+              >
+                <i className="ri-twitter-x-line"></i>
               </a>
             </div>
           </div>
-
-          {/* SHOPPING */}
+          {/* Shop Column */}
           <div>
-            <h3 className='text-lg font-bold text-gray-900 mb-6 pb-3 border-b-3 border-red-600 inline-block'>Shopping</h3>
-            <ul className='flex flex-col gap-3 text-base text-gray-700'>
-              <li onClick={() => navigate('/')} className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>My Account</li>
-              <li onClick={() => navigate('/orders')} className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Order Tracking</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Store Locator</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Offers</li>
+            <h4 className="font-medium text-white mb-6">Shop</h4>
+            <ul className="space-y-3">
+              <li>
+                <a href="#new-arrivals" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  New Arrivals
+                </a>
+              </li>
+              <li>
+                <a href="#bestsellers" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Bestsellers
+                </a>
+              </li>
+              <li>
+                <a href="#sale" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Sale
+                </a>
+              </li>
+              <li>
+                <a href="#collections" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Collections
+                </a>
+              </li>
+              <li>
+                <a href="#gift-cards" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Gift Cards
+                </a>
+              </li>
             </ul>
           </div>
-
-          {/* COMPANY */}
+          {/* Support Column */}
           <div>
-            <h3 className='text-lg font-bold text-gray-900 mb-6 pb-3 border-b-3 border-red-600 inline-block'>Company</h3>
-            <ul className='flex flex-col gap-3 text-base text-gray-700'>
-              <li onClick={() => navigate('/about')} className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>About Us</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Certificates</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Our Team</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Careers</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>FAQs</li>
+            <h4 className="font-medium text-white mb-6">Support</h4>
+            <ul className="space-y-3">
+              <li>
+                <a href="#contact" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Contact Us
+                </a>
+              </li>
+              <li>
+                <a href="#faq" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  FAQ
+                </a>
+              </li>
+              <li>
+                <a href="#shipping" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Shipping & Returns
+                </a>
+              </li>
+              <li>
+                <a href="#warranty" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Warranty
+                </a>
+              </li>
+              <li>
+                <a href="#installation" className="text-neutral-400 hover:text-rose-400 transition-colors duration-200 text-sm">
+                  Installation Guide
+                </a>
+              </li>
             </ul>
           </div>
-
-          {/* SUPPORT */}
+          {/* Newsletter Column */}
           <div>
-            <h3 className='text-lg font-bold text-gray-900 mb-6 pb-3 border-b-3 border-red-600 inline-block'>Support</h3>
-            <ul className='flex flex-col gap-3 text-base text-gray-700'>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Terms of Use</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Privacy Policy</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Shipping Info</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Returns</li>
-              <li className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>Contact Us</li>
-            </ul>
+            <h4 className="font-medium text-white mb-6">Stay Connected</h4>
+            <p className="text-neutral-400 text-sm mb-4">
+              Subscribe to receive updates, access to exclusive deals, and design inspiration.
+            </p>
+            <form className="space-y-3">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-full text-white placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-400 transition-colors duration-200"
+              />
+              <button
+                type="submit"
+                className="w-full px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white text-sm font-medium rounded-full hover:from-rose-700 hover:to-rose-800 transition-colors duration-200 whitespace-nowrap"
+              >
+                Subscribe
+              </button>
+            </form>
           </div>
-
-          {/* CONTACT */}
-          <div>
-            <h3 className='text-lg font-bold text-gray-900 mb-6 pb-3 border-b-3 border-red-600 inline-block'>Contact</h3>
-            <div className='text-base text-gray-700 space-y-2'>
-              <div>
-                <p className='text-xs text-red-600 uppercase tracking-widest font-bold mb-1'>Address</p>
-                <p className='text-sm leading-6 font-medium'>1940/10, Second Floor<br/>Chandni Chowk, Delhi<br/>110006 IND</p>
-              </div>
-              <div>
-                <p className='text-xs text-red-600 uppercase tracking-widest font-bold mb-1'>Phone</p>
-                <p className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium'>+91 9811915725</p>
-              </div>
-              <div>
-                <p className='text-xs text-red-600 uppercase tracking-widest font-bold mb-1'>Email</p>
-                <p className='cursor-pointer hover:text-red-700 transition-colors duration-200 font-medium text-sm break-all'>jaisatyaenterprises@gmail.com</p>
-              </div>
-            </div>
-          </div>
-
         </div>
-
-        {/* DIVIDER */}
-        <hr className='border-red-200 my-3' />
-
-        {/* COPYRIGHT */}
-        <div className='text-center'>
-          <p className='text-base text-gray-700 font-medium'>
-            © 2026 <span className='font-bold text-gray-900'>Jai Satya Enterprises</span> - All Rights Reserved. | Crafted with ❤️
-          </p>
+        {/* Bottom Bar */}
+        <div className="pt-8 border-t border-white/10">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-neutral-500 text-sm">
+              © 2026 Jainnext. All rights reserved.
+            </p>
+            <div className="flex gap-6">
+              <a href="#privacy" className="text-neutral-500 hover:text-rose-400 transition-colors duration-200 text-sm">
+                Privacy Policy
+              </a>
+              <a href="#terms" className="text-neutral-500 hover:text-rose-400 transition-colors duration-200 text-sm">
+                Terms of Service
+              </a>
+              <a href="#accessibility" className="text-neutral-500 hover:text-rose-400 transition-colors duration-200 text-sm">
+                Accessibility
+              </a>
+            </div>
+          </div>
         </div>
       </div>
-
-    </div>
-  )
+    </footer>
+  );
 }
-
-export default Footer

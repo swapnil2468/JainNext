@@ -72,7 +72,7 @@ const ShopContextProvider = (props) => {
     }
 
 
-    const addToCart = async (itemId) => {
+    const addToCart = async (itemId, quantity = 1) => {
 
         const product = products.find(p => p._id === itemId);
         if (!product) {
@@ -81,27 +81,22 @@ const ShopContextProvider = (props) => {
         }
 
         const currentQty = cartItems[itemId] || 0;
+        const newQty = currentQty + quantity;
         
         // Prevent unrealistic quantities (max 999 per item)
-        if (currentQty >= 999) {
+        if (newQty > 999) {
             toast.error('Maximum quantity limit reached');
             return;
         }
 
         let cartData = structuredClone(cartItems);
-
-        if (cartData[itemId]) {
-            cartData[itemId] += 1;
-        }
-        else {
-            cartData[itemId] = 1;
-        }
+        cartData[itemId] = newQty;
         setCartItems(cartData);
 
         if (token) {
             try {
 
-                await axios.post(backendUrl + '/api/cart/add', { itemId }, { headers: { token } })
+                await axios.post(backendUrl + '/api/cart/add', { itemId, quantity }, { headers: { token } })
 
             } catch (error) {
                 console.error('Error adding to cart:', error)

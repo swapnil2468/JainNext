@@ -41,16 +41,33 @@ const RelatedProducts = ({category,subCategory,currentProductId}) => {
     },[products, currentProductId, category, subCategory])
 
   return (
-    <div className='my-24'>
-      <div className=' text-center text-3xl py-2'>
-        <Title text1={'RELATED'} text2={"PRODUCTS"} />
+    <div className='my-16'>
+      {/* Section Header */}
+      <div className='flex items-center gap-4 mb-8'>
+        <h2 className='text-2xl md:text-3xl font-light text-neutral-900'>
+          Related <span className='text-rose-600 font-medium'>Products</span>
+        </h2>
+        <div className='flex-1 h-px bg-neutral-200'></div>
       </div>
 
-      <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-6'>
-        {related.map((item,index)=>(
-            <ProductItem key={index} id={item._id} name={item.name} price={item.retailPrice || item.price} wholesalePrice={item.wholesalePrice} minimumWholesaleQuantity={item.minimumWholesaleQuantity} image={item.image} stock={item.stock}/>
-        ))}
-      </div>
+      {related.length > 0 ? (
+        <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-6'>
+          {related.map((item, index) => (
+            <ProductItem
+              key={index}
+              id={item._id}
+              name={item.name}
+              price={item.retailPrice || item.price}
+              wholesalePrice={item.wholesalePrice}
+              minimumWholesaleQuantity={item.minimumWholesaleQuantity}
+              image={item.image}
+              stock={item.stock}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className='text-neutral-500 text-sm'>No related products found</p>
+      )}
     </div>
   )
 }

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import { Routes, Route } from 'react-router-dom'
 import Add from './pages/Add'
@@ -23,16 +22,14 @@ const App = () => {
   },[token])
 
   return (
-    <div className='bg-gray-50 min-h-screen'>
+    <div className='bg-gray-100 h-screen w-screen overflow-hidden'>
       <ToastContainer />
       {token === ""
         ? <Login setToken={setToken} />
         : <>
-          <Navbar setToken={setToken} />
-          <hr />
-          <div className='flex w-full'>
-            <Sidebar />
-            <div className='w-[70%] mx-auto ml-[max(5vw,25px)] my-8 text-gray-600 text-base'>
+          <Sidebar setToken={setToken} />
+          <div className='ml-[22%] h-full overflow-auto text-gray-600 text-base'>
+            <div className='ml-[max(5vw,25px)] mr-[max(5vw,25px)] my-8'>
               <Routes>
                 <Route path='/add' element={<Add token={token} />} />
                 <Route path='/edit/:productId' element={<Edit token={token} />} />

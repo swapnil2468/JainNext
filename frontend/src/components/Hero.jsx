@@ -1,191 +1,109 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { assets } from '../assets/assets'
+import { useNavigate } from 'react-router-dom'
 
 const Hero = () => {
-  const heroCards = [
-    {
-      id: 1,
-      title: 'Latest Collection',
-      subtitle: 'Explore our newest lighting solutions',
-      image: assets.img12,
-      imagePosition: 'center 59%',
-      subtitlePosition: 'top',
-    },
-    {
-      id: 2,
-      title: 'Premium Selection',
-      subtitle: 'Handpicked pieces for your space',
-      image: assets.img13,
-      imagePosition: 'center 60%',
-      subtitlePosition: 'top',
-    },
-    {
-      id: 3,
-      title: 'Exclusive Designs',
-      subtitle: 'Limited edition lighting fixtures',
-      image: assets.img14,
-      imagePosition: 'center 60%',
-      subtitlePosition: 'center',
-    },
-    {
-      id: 4,
-      title: 'Best Sellers',
-      subtitle: 'Customer favorites this season',
-      image: assets.img16,
-      imagePosition: 'center 60%',
-      subtitlePosition: 'bottom',
-    }
-  ]
-
-  const [currentCard, setCurrentCard] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentCard((prev) => (prev + 1) % heroCards.length);
-    }, 6000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handlePrev = () => {
-    setCurrentCard((prev) => (prev - 1 + heroCards.length) % heroCards.length);
-  };
-
-  const handleNext = () => {
-    setCurrentCard((prev) => (prev + 1) % heroCards.length);
-  };
-
-  const card = heroCards[currentCard];
+  const navigate = useNavigate()
 
   return (
-    <div className='relative w-full'>
-      <style>{`
-        @keyframes slideInRight {
-          from { 
-            opacity: 0; 
-            transform: translateX(150px);
-          }
-          to { 
-            opacity: 1; 
-            transform: translateX(0);
-          }
-        }
+    <section className='w-full pt-24 pb-16 px-6 lg:px-8 relative overflow-hidden'>
+      {/* Subtle gradient background with warm reddish tones */}
+      <div className="absolute inset-0 bg-gradient-to-br from-rose-50/60 via-rose-50/20 to-orange-50/30 pointer-events-none"></div>
 
-        @keyframes slideOutRight {
-          from {
-            opacity: 1;
-            transform: translateX(0);
-          }
-          to {
-            opacity: 0;
-            transform: translateX(150px);
-          }
-        }
-        
-        .slide-fade {
-          animation: slideInRight 0.2s ease-in-out;
-        }
-
-        .slide-fade-out {
-          animation: slideOutRight 0.15s ease-in-out;
-        }
-
-        @keyframes arrowHover {
-          0%, 100% { transform: translateX(0); }
-          50% { transform: translateX(4px); }
-        }
-
-        .arrow-button:hover {
-          animation: arrowHover 0.6s ease-in-out;
-        }
-      `}</style>
-
-      {/* Full-Bleed Hero Container */}
-      <div key={currentCard} className='slide-fade relative h-[550px] group cursor-pointer mt-6'>
-        {/* Left Click Zone */}
-        <div 
-          onClick={handlePrev}
-          className='absolute left-0 top-0 w-1/5 h-full z-10 hover:bg-black/10 transition-colors'
-        ></div>
-
-        {/* Right Click Zone */}
-        <div 
-          onClick={handleNext}
-          className='absolute right-0 top-0 w-1/5 h-full z-10 hover:bg-black/10 transition-colors'
-        ></div>
-        {/* Background Image */}
-        <div className='absolute inset-0 w-full h-full'>
-          <img 
-            className='w-full h-full object-cover' 
-            style={{ objectPosition: card.imagePosition }}
-            src={card.image} 
-            alt={card.title} 
-          />
-        </div>
-
-        {/* Dark Gradient Overlay */}
-        <div className='absolute inset-0 bg-gradient-to-r from-black/40 via-black/20 to-transparent'></div>
-
-        {/* Content Area - Left Aligned */}
-        <div className='absolute inset-0 flex flex-col justify-between p-6 sm:p-8 md:p-10'>
-          {/* Top Spacing */}
-          <div className='flex justify-between items-start'>
-            <div></div>
+      {/* Soft glow effect with warm tones */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-rose-200/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-orange-200/15 rounded-full blur-3xl"></div>
+      
+      <div className="relative w-full px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Left Content */}
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <p className="text-sm font-medium tracking-wider text-rose-700 uppercase">
+                Premium Lighting Collection
+              </p>
+              <h1 className="text-5xl lg:text-6xl font-light text-neutral-900 leading-tight">
+                Illuminate Your
+                <span className="block font-medium mt-2">Perfect Space</span>
+              </h1>
+              <p className="text-lg text-neutral-600 leading-relaxed max-w-lg">
+                Discover handcrafted lighting designed to transform any room into an elegant sanctuary. Where artistry meets illumination.
+              </p>
+            </div>
+            
+            {/* CTA Buttons */}
+            <div className="flex flex-wrap gap-4">
+              <button
+                onClick={() => navigate('/collection')}
+                className="group relative px-8 py-4 bg-gradient-to-r from-rose-700 to-rose-600 text-white text-sm font-medium rounded-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-rose-600/30 hover:-translate-y-0.5 whitespace-nowrap"
+              >
+                <span className="relative z-10">Explore Collection</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-rose-800 to-rose-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </button>
+              <a
+                href="#learn"
+                className="px-8 py-4 bg-white text-neutral-900 text-sm font-medium rounded-full border border-rose-200 hover:border-rose-300 hover:bg-rose-50/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap"
+              >
+                Learn More
+              </a>
+            </div>
+            
+            {/* Trust Indicators */}
+            <div className="flex flex-wrap gap-8 pt-6">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 flex items-center justify-center bg-rose-50 rounded-full">
+                  <i className="ri-truck-line text-rose-700"></i>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Free Shipping</p>
+                  <p className="text-xs text-neutral-500">On orders over $200</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 flex items-center justify-center bg-rose-50 rounded-full">
+                  <i className="ri-shield-check-line text-rose-700"></i>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Quality Assured</p>
+                  <p className="text-xs text-neutral-500">Premium materials</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 flex items-center justify-center bg-rose-50 rounded-full">
+                  <i className="ri-loop-left-line text-rose-700"></i>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">Easy Returns</p>
+                  <p className="text-xs text-neutral-500">30-day guarantee</p>
+                </div>
+              </div>
+            </div>
           </div>
+          
+          {/* Right Image - Elevated Card */}
+          <div className="relative">
+            {/* Floating glow effect with warm tones */}
+            <div className="absolute -inset-4 bg-gradient-to-br from-rose-200/30 to-orange-200/20 rounded-3xl blur-2xl"></div>
 
-          {/* Middle: Main Content */}
-          <div className={`flex absolute inset-0 p-6 sm:p-8 md:p-10 ${
-            card.subtitlePosition === 'top' ? 'items-start pt-16' : 
-            card.subtitlePosition === 'bottom' ? 'items-end pb-16' : 
-            'items-center'
-          }`}>
-            <div className='text-white space-y-4 max-w-2xl'>
-              {/* Decorative Line */}
-              <div className='flex items-center gap-3'>
-                <div className='w-12 h-1 bg-red-600'></div>
+            {/* Product Card */}
+            <div className="relative bg-white rounded-3xl p-8 shadow-2xl shadow-rose-900/10 transition-all duration-500 hover:shadow-3xl hover:shadow-rose-900/15 hover:-translate-y-2">
+              <div className="aspect-square overflow-hidden rounded-2xl bg-gradient-to-br from-neutral-50 to-rose-50/30">
+                <img
+                  src={assets.lamp}
+                  alt="Featured Premium Pendant Light"
+                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                />
               </div>
 
-              {/* Title */}
-              <h1 className='prata-regular text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-white'>
-                {card.title}
-              </h1>
-
-              {/* Subtitle */}
-              <p className='text-base md:text-lg text-white font-medium max-w-md drop-shadow-lg'>
-                {card.subtitle}
-              </p>
-
-              {/* CTA Button */}
-              <div className='pt-4'>
-                <button className='group flex items-center gap-3 text-white hover:text-red-600 transition-all duration-300 font-semibold'>
-                  <span className='text-sm md:text-base tracking-wider'>SHOP NOW</span>
-                  <div className='w-8 h-[2px] bg-white group-hover:bg-red-600 group-hover:w-12 transition-all duration-300'></div>
-                </button>
+              {/* Bestseller Badge */}
+              <div className="absolute top-12 right-12 bg-gradient-to-r from-rose-600 to-rose-700 text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg">
+                Bestseller
               </div>
             </div>
           </div>
         </div>
-
-        {/* Bottom: Slide Indicators */}
-        <div className='absolute bottom-4 sm:bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-2'>
-          {/* Indicators */}
-          <div className='flex gap-2'>
-            {heroCards.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentCard(index)}
-                className={`transition-all duration-300 ${
-                  index === currentCard 
-                    ? 'bg-white w-6 h-0.5' 
-                    : 'bg-gray-400 w-1.5 h-0.5 hover:bg-gray-300'
-                }`}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
-          </div>
-        </div>
       </div>
-    </div>
+    </section>
   )
 }
 

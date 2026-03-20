@@ -110,178 +110,335 @@ const Profile = () => {
     }
   }
 
+  // Loading state
   if (loading) {
     return (
-      <div className='border-t pt-16 flex items-center justify-center min-h-[60vh]'>
-        <p className='text-lg text-gray-500'>Loading profile...</p>
+      <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8 flex items-center justify-center'>
+        <div className='flex flex-col items-center gap-3'>
+          <div className='w-10 h-10 border-2 border-neutral-200 border-t-rose-500 rounded-full animate-spin'></div>
+          <p className='text-neutral-500'>Loading profile...</p>
+        </div>
       </div>
     )
   }
 
   if (!userData) {
     return (
-      <div className='border-t pt-16 flex items-center justify-center min-h-[60vh]'>
-        <p className='text-lg text-gray-500'>No user data found</p>
+      <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8 flex items-center justify-center'>
+        <p className='text-neutral-500'>No user data found</p>
       </div>
     )
   }
 
   return (
-    <div className='border-t pt-16'>
-      <div className='text-2xl mb-8'>
-        <Title text1={'MY'} text2={'PROFILE'} />
+    <div className='min-h-screen bg-gradient-to-br from-rose-50/40 via-white to-orange-50/30 pt-24 px-6 lg:px-8 pb-2'>
+      {/* Header */}
+      <div className='mb-8'>
+        <h1 className='text-4xl font-light text-neutral-900'>
+          My <span className='font-medium text-rose-600'>Profile</span>
+        </h1>
+        <div className='w-16 h-0.5 bg-rose-600 mt-2'></div>
       </div>
 
-      <div className='max-w-2xl'>
-        {/* Profile Information Card */}
-        <div className='bg-gray-50 p-6 rounded border'>
-          <div className='mb-6'>
-            <h3 className='text-lg font-semibold text-gray-800 mb-4'>Account Information</h3>
-            
-            <div className='space-y-4'>
-              <div className='border-b pb-3'>
-                <label className='text-gray-600 text-sm font-medium'>Name</label>
-                <p className='text-gray-800 text-base mt-1'>{userData.name}</p>
-              </div>
+      <div className='grid lg:grid-cols-3 gap-4 max-w-full'>
 
-              <div className='border-b pb-3'>
-                <label className='text-gray-600 text-sm font-medium'>Email</label>
-                <p className='text-gray-800 text-base mt-1'>{userData.email}</p>
-              </div>
+        {/* LEFT COLUMN - Profile Card */}
+        <div className='lg:col-span-1 space-y-4'>
 
-              <div>
-                <label className='text-gray-600 text-sm font-medium'>Member Since</label>
-                <p className='text-gray-800 text-base mt-1'>
+          {/* Avatar + Name Card */}
+          <div className='bg-gradient-to-br from-rose-600 via-rose-700 to-rose-800 rounded-2xl shadow-lg p-6 text-center text-white relative overflow-hidden'>
+            {/* Decorative circles */}
+            <div className='absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16'></div>
+            <div className='absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12'></div>
+            <div className='relative'>
+              <div className='w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/30'>
+                <span className='text-3xl font-light text-white'>
+                  {userData.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <h2 className='text-xl font-medium text-white'>{userData.name}</h2>
+              <p className='text-sm text-rose-200 mt-1'>{userData.email}</p>
+              <div className='mt-4 pt-4 border-t border-white/20'>
+                <p className='text-xs text-rose-300'>Member Since</p>
+                <p className='text-sm font-medium text-white mt-1'>
                   {userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
+                    year: 'numeric', month: 'long', day: 'numeric'
                   }) : 'Recently'}
                 </p>
               </div>
             </div>
           </div>
+
+          {/* Quick Actions Card */}
+          <div className='bg-white rounded-2xl border border-neutral-200/60 shadow-sm p-6'>
+            <h3 className='text-sm font-semibold text-neutral-900 uppercase tracking-wide mb-4'>Quick Actions</h3>
+            <div className='space-y-2'>
+              <button
+                onClick={() => navigate('/orders')}
+                className='w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 text-neutral-700 transition-all text-sm font-medium text-left'
+              >
+                <i className='ri-shopping-bag-line text-lg'></i>
+                My Orders
+                <i className='ri-arrow-right-s-line ml-auto'></i>
+              </button>
+              <button
+                onClick={() => navigate('/collection')}
+                className='w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 text-neutral-700 transition-all text-sm font-medium text-left'
+              >
+                <i className='ri-store-line text-lg'></i>
+                Browse Collection
+                <i className='ri-arrow-right-s-line ml-auto'></i>
+              </button>
+              <button
+                onClick={() => navigate('/cart')}
+                className='w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 text-neutral-700 transition-all text-sm font-medium text-left'
+              >
+                <i className='ri-shopping-cart-line text-lg'></i>
+                View Cart
+                <i className='ri-arrow-right-s-line ml-auto'></i>
+              </button>
+              <div className='border-t border-neutral-100 pt-2 mt-2'>
+                <button
+                  onClick={() => logout()}
+                  className='w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-100 hover:bg-rose-50 text-rose-500 transition-all text-sm font-medium text-left'
+                >
+                  <i className='ri-logout-box-line text-lg'></i>
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Wholesale Account Section */}
-        {userData.role === 'retail' ? (
-          <div className='bg-red-50 border-2 border-red-200 p-6 rounded-lg mt-6 shadow-md'>
-            <h3 className='text-lg font-semibold text-red-900 mb-2'>Interested in Wholesale?</h3>
-            <p className='text-sm text-gray-700 mb-4'>
-              Apply for a wholesale account to access special pricing and bulk order discounts.
-            </p>
-            
-            {!showWholesaleForm ? (
-              <button
-                onClick={() => setShowWholesaleForm(true)}
-                className='bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-2 text-sm font-bold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md transform hover:scale-105'
-              >
-                Apply for Wholesale Account
-              </button>
-            ) : (
-              <form onSubmit={handleWholesaleSubmit} className='space-y-4'>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>Business Name *</label>
-                  <input
-                    type='text'
-                    name='businessName'
-                    value={wholesaleFormData.businessName}
-                    onChange={handleWholesaleInputChange}
-                    required
-                    className='w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                  />
-                </div>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>GST Number *</label>
-                  <input
-                    type='text'
-                    name='gstNumber'
-                    value={wholesaleFormData.gstNumber}
-                    onChange={handleWholesaleInputChange}
-                    required
-                    className='w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                  />
-                </div>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>Business Phone *</label>
-                  <input
-                    type='tel'
-                    name='businessPhone'
-                    value={wholesaleFormData.businessPhone}
-                    onChange={handleWholesaleInputChange}
-                    required
-                    className='w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                  />
-                </div>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>Business Address *</label>
-                  <textarea
-                    name='businessAddress'
-                    value={wholesaleFormData.businessAddress}
-                    onChange={handleWholesaleInputChange}
-                    required
-                    rows='3'
-                    className='w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                  />
-                </div>
-                <div className='flex gap-3'>
-                  <button
-                    type='submit'
-                    disabled={submitting}
-                    className='bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-2 text-sm font-bold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105'
-                  >
-                    {submitting ? 'Submitting...' : 'Submit Application'}
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setShowWholesaleForm(false)}
-                    className='bg-gray-300 text-gray-700 px-6 py-2 text-sm font-medium rounded hover:bg-gray-400 transition-colors'
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        ) : userData.role === 'wholesale' && !userData.isApproved ? (
-          <div className='bg-gray-50 border border-gray-200 p-6 rounded mt-6'>
-            <h3 className='text-lg font-semibold text-gray-900 mb-2'>Wholesale Application Pending</h3>
-            <p className='text-sm text-gray-700'>
-              Your wholesale account application is under review. You'll be notified once approved.
-            </p>
-            <div className='mt-4 space-y-2 text-sm text-gray-600'>
-              <p><strong>Business Name:</strong> {userData.businessName}</p>
-              <p><strong>GST Number:</strong> {userData.gstNumber}</p>
-            </div>
-          </div>
-        ) : userData.role === 'wholesale' && userData.isApproved ? (
-          <div className='bg-green-50 border border-green-200 p-6 rounded mt-6'>
-            <h3 className='text-lg font-semibold text-green-900 mb-2'>✓ Wholesale Account Active</h3>
-            <p className='text-sm text-gray-700 mb-4'>
-              Your wholesale account is active. You can now see wholesale pricing on eligible products.
-            </p>
-            <div className='space-y-2 text-sm text-gray-600'>
-              <p><strong>Business Name:</strong> {userData.businessName}</p>
-              <p><strong>GST Number:</strong> {userData.gstNumber}</p>
-              <p><strong>Business Phone:</strong> {userData.businessPhone}</p>
-            </div>
-          </div>
-        ) : null}
+        {/* RIGHT COLUMN */}
+        <div className='lg:col-span-2 space-y-4 flex flex-col'>
 
-        {/* Quick Actions */}
-        <div className='mt-8 flex gap-4'>
-          <button 
-            onClick={() => navigate('/orders')}
-            className='bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-3 text-sm font-bold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md transform hover:scale-105'
-          >
-            View Orders
-          </button>
-          <button 
-            onClick={() => navigate('/collection')}
-            className='border-2 border-red-600 text-red-600 px-8 py-3 text-sm font-semibold rounded-lg hover:bg-red-600 hover:text-white transition-all'
-          >
-            Continue Shopping
-          </button>
+          {/* Account Summary Stats */}
+          <div className='grid sm:grid-cols-3 gap-4'>
+            <div className='bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-100'>
+              <div className='flex items-start justify-between'>
+                <div>
+                  <p className='text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1'>Account Status</p>
+                  <p className='text-lg font-semibold text-neutral-900 capitalize'>{userData.role || 'Retail'}</p>
+                </div>
+                <div className='w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center'>
+                  <i className='ri-user-star-line text-blue-600'></i>
+                </div>
+              </div>
+            </div>
+
+            <div className='bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-100'>
+              <div className='flex items-start justify-between'>
+                <div>
+                  <p className='text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1'>Member Since</p>
+                  <p className='text-lg font-semibold text-neutral-900'>
+                    {userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { year: 'numeric' }) : 'Recently'}
+                  </p>
+                </div>
+                <div className='w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center'>
+                  <i className='ri-calendar-line text-purple-600'></i>
+                </div>
+              </div>
+            </div>
+
+            <div className='bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl p-4 border border-green-100'>
+              <div className='flex items-start justify-between'>
+                <div>
+                  <p className='text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1'>Account Active</p>
+                  <p className='text-lg font-semibold text-green-600'>✓ Verified</p>
+                </div>
+                <div className='w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center'>
+                  <i className='ri-check-double-line text-green-600'></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Information Card */}
+          <div className='bg-white rounded-2xl border border-neutral-200/60 shadow-sm p-6'>
+            <h3 className='text-lg font-light text-neutral-900 mb-3 flex items-center gap-2'>
+              <div className='w-1 h-6 bg-rose-600 rounded-full'></div>
+              Account <span className='font-medium'>Information</span>
+            </h3>
+            <div className='grid sm:grid-cols-2 gap-6'>
+              <div className='bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-xl p-4 border border-rose-100'>
+                <p className='text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1'>Full Name</p>
+                <p className='text-neutral-900 font-medium'>{userData.name}</p>
+              </div>
+              <div className='bg-gradient-to-br from-orange-50 to-amber-50/50 rounded-xl p-4 border border-orange-100'>
+                <p className='text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1'>Email Address</p>
+                <p className='text-neutral-900 font-medium'>{userData.email}</p>
+              </div>
+              <div className='bg-gradient-to-br from-neutral-50 to-neutral-100/50 rounded-xl p-4 border border-neutral-100'>
+                <p className='text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1'>Account Type</p>
+                <p className='text-neutral-900 font-medium capitalize'>{userData.role || 'Retail'}</p>
+              </div>
+              <div className='bg-gradient-to-br from-rose-50 to-pink-50/50 rounded-xl p-4 border border-rose-100'>
+                <p className='text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1'>Member Since</p>
+                <p className='text-neutral-900 font-medium'>
+                  {userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                  }) : 'Recently'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Wholesale Section */}
+          {userData.role === 'retail' ? (
+            <div className='bg-white rounded-2xl border border-rose-100 shadow-sm p-6 relative overflow-hidden flex flex-col flex-1'>
+              <div className='absolute top-0 right-0 w-40 h-40 bg-rose-50 rounded-full -translate-y-20 translate-x-20'></div>
+              <div className='relative flex-1 flex flex-col'>
+              <div className='flex items-start gap-4 mb-6'>
+                <div className='w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center flex-shrink-0'>
+                  <i className='ri-store-2-line text-rose-600 text-xl'></i>
+                </div>
+                <div>
+                  <h3 className='text-lg font-medium text-neutral-900'>Interested in Wholesale?</h3>
+                  <p className='text-sm text-neutral-500 mt-1'>Apply for a wholesale account to access special pricing and bulk order discounts.</p>
+                </div>
+              </div>
+
+              {!showWholesaleForm ? (
+                <button
+                  onClick={() => setShowWholesaleForm(true)}
+                  className='mt-auto bg-gradient-to-r from-rose-600 to-rose-700 text-white px-6 py-3 text-sm font-medium rounded-xl hover:from-rose-700 hover:to-rose-800 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                >
+                  <i className='ri-store-2-line mr-2'></i>
+                  Apply for Wholesale Account
+                </button>
+              ) : (
+                <form onSubmit={handleWholesaleSubmit} className='space-y-4 mt-auto'>
+                  <div className='grid sm:grid-cols-2 gap-4'>
+                    <div>
+                      <label className='block text-sm font-medium text-neutral-700 mb-2'>Business Name *</label>
+                      <input
+                        type='text'
+                        name='businessName'
+                        value={wholesaleFormData.businessName}
+                        onChange={handleWholesaleInputChange}
+                        required
+                        className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                        placeholder='Your business name'
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-sm font-medium text-neutral-700 mb-2'>GST Number *</label>
+                      <input
+                        type='text'
+                        name='gstNumber'
+                        value={wholesaleFormData.gstNumber}
+                        onChange={handleWholesaleInputChange}
+                        required
+                        className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                        placeholder='GST number'
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium text-neutral-700 mb-2'>Business Phone *</label>
+                    <input
+                      type='tel'
+                      name='businessPhone'
+                      value={wholesaleFormData.businessPhone}
+                      onChange={handleWholesaleInputChange}
+                      required
+                      className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                      placeholder='Business phone number'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium text-neutral-700 mb-2'>Business Address *</label>
+                    <textarea
+                      name='businessAddress'
+                      value={wholesaleFormData.businessAddress}
+                      onChange={handleWholesaleInputChange}
+                      required
+                      rows='3'
+                      className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm resize-none'
+                      placeholder='Full business address'
+                    />
+                  </div>
+                  <div className='flex gap-3'>
+                    <button
+                      type='submit'
+                      disabled={submitting}
+                      className='bg-gradient-to-r from-rose-600 to-rose-700 text-white px-6 py-3 text-sm font-medium rounded-xl hover:from-rose-700 hover:to-rose-800 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      {submitting ? 'Submitting...' : 'Submit Application'}
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => setShowWholesaleForm(false)}
+                      className='px-6 py-3 text-sm font-medium rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-all'
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+              </div>
+            </div>
+          ) : userData.role === 'wholesale' && userData.isRejected ? (
+            <div className='bg-white rounded-2xl border border-orange-200 shadow-sm p-6 relative overflow-hidden'>
+              <div className='absolute top-0 right-0 w-40 h-40 bg-orange-50 rounded-full -translate-y-20 translate-x-20'></div>
+              <div className='relative'>
+                <div className='flex items-start gap-4 mb-4'>
+                  <div className='w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0'>
+                    <i className='ri-close-circle-line text-orange-500 text-xl'></i>
+                  </div>
+                  <div>
+                    <h3 className='text-lg font-medium text-neutral-900'>Application Rejected</h3>
+                    <p className='text-sm text-neutral-500 mt-1'>Your wholesale application has been rejected. Please review your information and try again.</p>
+                  </div>
+                </div>
+                <div className='bg-orange-50 rounded-xl p-4 space-y-2 text-sm'>
+                  <p><span className='text-neutral-500'>Business Name:</span> <span className='font-medium text-neutral-900'>{userData.businessName}</span></p>
+                  <p><span className='text-neutral-500'>GST Number:</span> <span className='font-medium text-neutral-900'>{userData.gstNumber}</span></p>
+                </div>
+              </div>
+            </div>
+          ) : userData.role === 'wholesale' && !userData.isApproved ? (
+            <div className='bg-white rounded-2xl border border-neutral-200 shadow-sm p-6 relative overflow-hidden'>
+              <div className='absolute top-0 right-0 w-40 h-40 bg-neutral-50 rounded-full -translate-y-20 translate-x-20'></div>
+              <div className='relative'>
+                <div className='flex items-start gap-4 mb-4'>
+                  <div className='w-12 h-12 bg-neutral-50 rounded-xl flex items-center justify-center flex-shrink-0'>
+                    <i className='ri-time-line text-neutral-400 text-xl'></i>
+                  </div>
+                  <div>
+                    <h3 className='text-lg font-medium text-neutral-900'>Application Under Review</h3>
+                    <p className='text-sm text-neutral-500 mt-1'>Your wholesale account application is under review. You'll be notified once approved.</p>
+                  </div>
+                </div>
+                <div className='bg-neutral-50 rounded-xl p-4 space-y-2 text-sm'>
+                  <p><span className='text-neutral-500'>Business Name:</span> <span className='font-medium text-neutral-900'>{userData.businessName}</span></p>
+                  <p><span className='text-neutral-500'>GST Number:</span> <span className='font-medium text-neutral-900'>{userData.gstNumber}</span></p>
+                </div>
+              </div>
+            </div>
+          ) : userData.role === 'wholesale' && userData.isApproved ? (
+            <div className='bg-white rounded-2xl border border-green-200 shadow-sm p-6 relative overflow-hidden'>
+              <div className='absolute top-0 right-0 w-40 h-40 bg-green-50 rounded-full -translate-y-20 translate-x-20'></div>
+              <div className='relative'>
+                <div className='flex items-start gap-4 mb-4'>
+                  <div className='w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0'>
+                    <i className='ri-checkbox-circle-line text-green-600 text-xl'></i>
+                  </div>
+                  <div>
+                    <h3 className='text-lg font-medium text-neutral-900'>Wholesale Account Active</h3>
+                    <p className='text-sm text-neutral-500 mt-1'>Your wholesale account is active. You can now see wholesale pricing on eligible products.</p>
+                  </div>
+                </div>
+                <div className='bg-green-50 rounded-xl p-4 space-y-2 text-sm'>
+                  <p><span className='text-neutral-500'>Business Name:</span> <span className='font-medium text-neutral-900'>{userData.businessName}</span></p>
+                  <p><span className='text-neutral-500'>GST Number:</span> <span className='font-medium text-neutral-900'>{userData.gstNumber}</span></p>
+                  <p><span className='text-neutral-500'>Business Phone:</span> <span className='font-medium text-neutral-900'>{userData.businessPhone}</span></p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
         </div>
       </div>
     </div>

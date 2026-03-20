@@ -33,18 +33,9 @@ const Orders = ({ token }) => {
   const [orders, setOrders]               = useState([])
   const [activeTab, setActiveTab]         = useState('New')
   const [sortBy, setSortBy]               = useState('date_desc')
-  const [visibleCount, setVisibleCount]   = useState(PAGE_SIZE)
+  const [currentPage, setCurrentPage]     = useState(1)
+  const [searchTerm, setSearchTerm]       = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
-  const observerRef = useRef(null)
-  const sentinelRef = useCallback((node) => {
-    if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null }
-    if (!node) return
-    observerRef.current = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) setVisibleCount(prev => prev + PAGE_SIZE) },
-      { rootMargin: '200px' }
-    )
-    observerRef.current.observe(node)
-  }, [])
   const [trackingNumbers, setTrackingNumbers] = useState({})
   const [showStatusConfirm, setShowStatusConfirm] = useState(false)
   const [pendingStatusChange, setPendingStatusChange] = useState(null)
@@ -111,13 +102,24 @@ const Orders = ({ token }) => {
 
   useEffect(() => { fetchAllOrders() }, [token])
 
-  // Reset visible count when tab or sort changes
-  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [activeTab, sortBy])
+  // Reset to page 1 when tab or sort changes
+  useEffect(() => { setCurrentPage(1) }, [activeTab, sortBy])
 
-  // Filter by active tab then sort
+  // Filter by active tab and search, then sort
   const currentTabFilter = TABS.find(t => t.key === activeTab)?.filter ?? (() => true)
   const displayed = [...orders]
     .filter(currentTabFilter)
+    .filter(order => {
+      const searchLower = searchTerm.toLowerCase()
+      const itemSummary = order.items.map(i => i.name).join(' ')
+      return (
+        itemSummary.toLowerCase().includes(searchLower) ||
+        order._id.toLowerCase().includes(searchLower) ||
+        order.address.firstName.toLowerCase().includes(searchLower) ||
+        order.address.lastName.toLowerCase().includes(searchLower) ||
+        order.address.phone.includes(searchTerm)
+      )
+    })
     .sort((a, b) => {
       if (sortBy === 'date_desc')   return b.date - a.date
       if (sortBy === 'date_asc')    return a.date - b.date
@@ -125,6 +127,13 @@ const Orders = ({ token }) => {
       if (sortBy === 'amount_asc')  return a.amount - b.amount
       return 0
     })
+
+  // Pagination
+  const totalPages = Math.ceil(displayed.length / PAGE_SIZE)
+  const paginatedOrders = displayed.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  )
 
   const getTabCount = (tabKey) => {
     const tab = TABS.find(t => t.key === tabKey)
@@ -196,24 +205,27 @@ const Orders = ({ token }) => {
   }
 
   return (
-    <div>
-      {/* Page header */}
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4'>
-        <h3 className='text-xl font-semibold'>Orders</h3>
-        <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value)}
-          className='px-3 py-2 border rounded text-sm'
-        >
-          <option value="date_desc">Newest First</option>
-          <option value="date_asc">Oldest First</option>
-          <option value="amount_desc">Amount: High → Low</option>
-          <option value="amount_asc">Amount: Low → High</option>
-        </select>
+    <div className='w-full'>
+      {/* Header */}
+      <div className='flex justify-between items-start mb-6'>
+        <div>
+          <h1 className='text-2xl font-bold text-gray-900 mb-1 antialiased'>Orders</h1>
+          <p className='text-gray-900 text-sm font-medium antialiased'>Manage and track customer orders.</p>
+        </div>
+        <div className='relative w-60'>
+          <span className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-900'>🔍</span>
+          <input
+            type="text"
+            placeholder='Search orders...'
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500 text-sm'
+          />
+        </div>
       </div>
 
       {/* Tab navigation */}
-      <div className='flex flex-wrap border-b mb-5 gap-0'>
+      <div className='flex flex-wrap border-b mb-6 gap-0'>
         {TABS.map(tab => {
           const count = getTabCount(tab.key)
           const isActive = activeTab === tab.key
@@ -221,14 +233,16 @@ const Orders = ({ token }) => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
-                isActive ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500 hover:text-gray-700'
+              className={`px-4 py-3 text-sm font-bold transition-colors whitespace-nowrap border-b-2 antialiased ${
+                isActive 
+                  ? 'text-red-600 border-red-600' 
+                  : 'text-gray-500 border-transparent hover:text-red-600'
               }`}
             >
               {tab.label}
               {count > 0 && (
-                <span className={`ml-1.5 text-xs rounded-full px-1.5 py-0.5 ${
-                  isActive ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'
+                <span className={`ml-2 text-xs font-bold antialiased ${
+                  isActive ? 'text-red-600' : 'text-gray-500'
                 }`}>{count}</span>
               )}
             </button>
@@ -236,107 +250,160 @@ const Orders = ({ token }) => {
         })}
       </div>
 
-      {/* Order list */}
+      {/* Orders List */}
       {displayed.length === 0 ? (
-        <p className='text-gray-400 text-center py-12'>No orders here.</p>
+        <div>
+          <p className='text-gray-900 text-center py-12 font-medium antialiased'>No orders found</p>
+        </div>
       ) : (
         <>
-          {displayed.slice(0, visibleCount).map((order) => {
-            const isExpanded = expandedOrders[order._id]
-            const itemSummary = order.items.map(i => `${i.name} x${i.quantity}`).join(', ')
-            const shortSummary = itemSummary.length > 60 ? itemSummary.slice(0, 57) + '...' : itemSummary
-
-            return (
-              <div key={order._id} className='border border-gray-200 rounded-lg mb-3 overflow-hidden'>
-                {/* Compact row — always visible */}
-                <div
-                  onClick={() => toggleExpand(order._id)}
-                  className='flex flex-col sm:flex-row sm:items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors'
-                >
-                  {/* Order info */}
-                  <div className='flex-1 min-w-0'>
-                    <p className='text-sm font-medium text-gray-800 truncate'>{shortSummary}</p>
-                    <p className='text-xs text-gray-500 mt-0.5'>
-                      #{order._id.slice(-8).toUpperCase()}
-                      <span className='mx-1.5'>•</span>
-                      {new Date(order.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
-                      <span className='mx-1.5'>•</span>
-                      {currency}{order.amount}
-                      <span className='mx-1.5'>•</span>
-                      {order.paymentMethod} ({order.payment ? 'Paid' : 'Pending'})
-                    </p>
-                  </div>
-
-                  {/* Status + action */}
-                  <div className='flex items-center gap-3 flex-shrink-0' onClick={e => e.stopPropagation()}>
-                    <StatusControls order={order} />
-                  </div>
-
-                  {/* Chevron */}
-                  <svg
-                    className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    fill='none' viewBox='0 0 24 24' stroke='currentColor'
-                  >
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 9l-7 7-7-7' />
-                  </svg>
-                </div>
-
-                {/* Expanded details */}
-                {isExpanded && (
-                  <div className='border-t bg-gray-50 p-4'>
-                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                      {/* Items */}
-                      <div>
-                        <p className='text-xs font-semibold text-gray-500 uppercase mb-2'>Items</p>
-                        {order.items.map((item, i) => (
-                          <p key={i} className='text-sm py-0.5'>
-                            {item.name} <span className='text-gray-400'>x{item.quantity}</span>
-                            {item.size ? <span className='text-gray-400'> ({item.size})</span> : ''}
-                          </p>
-                        ))}
-                      </div>
-
-                      {/* Customer */}
-                      <div>
-                        <p className='text-xs font-semibold text-gray-500 uppercase mb-2'>Customer</p>
-                        <p className='text-sm font-medium'>{order.address.firstName} {order.address.lastName}</p>
-                        <p className='text-sm text-gray-600'>{order.address.street}</p>
-                        <p className='text-sm text-gray-600'>{order.address.city}, {order.address.state} {order.address.zipcode}</p>
-                        <p className='text-sm text-gray-600'>{order.address.country}</p>
-                        <p className='text-sm text-gray-600 mt-1'>{order.address.phone}</p>
-                      </div>
-
-                      {/* Tracking */}
-                      <div>
-                        <p className='text-xs font-semibold text-gray-500 uppercase mb-2'>Tracking</p>
-                        {['Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) ? (
-                          <input
-                            type='text'
-                            placeholder='Enter tracking number'
-                            value={trackingNumbers[order._id] || ''}
-                            onChange={(e) => setTrackingNumbers(prev => ({ ...prev, [order._id]: e.target.value }))}
-                            onBlur={() => saveTracking(order._id, order.status)}
-                            className='w-full p-2 border rounded text-sm'
-                          />
-                        ) : (
-                          <p className='text-sm text-gray-400 italic'>Available after shipping</p>
-                        )}
-                      </div>
+          <div className='space-y-4'>
+            {paginatedOrders.map((order) => (
+              <div key={order._id} className='bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm'>
+                {/* Top Section */}
+                <div className='p-6 flex items-start gap-4 justify-between border-b border-gray-200'>
+                  {/* Left - Product Image & Info */}
+                  <div className='flex gap-4 flex-1'>
+                    <img 
+                      src={order.items[0]?.image?.[0] || assets.upload_area}
+                      alt={order.items[0]?.name}
+                      className='w-20 h-20 object-cover rounded-lg flex-shrink-0'
+                    />
+                    <div className='flex-1'>
+                      <h3 className='text-gray-900 font-bold text-base mb-2 antialiased'>{order.items[0]?.name || 'Product'}</h3>
+                      <p className='text-sm mb-1 antialiased'>
+                        <span className='text-gray-400'>Order ID: </span>
+                        <span className='text-gray-900 font-semibold'>#{order._id.slice(-8).toUpperCase()}</span>
+                        <span className='text-gray-400'> • {new Date(order.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </p>
+                      <p className='text-2xl font-bold text-red-600 antialiased'>{currency}{order.amount.toFixed(2)}</p>
                     </div>
                   </div>
-                )}
+
+                  {/* Right - Status & Buttons */}
+                  <div className='flex flex-col items-end gap-3'>
+                    {/* Status Badge */}
+                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full antialiased ${
+                      order.paymentMethod?.toLowerCase() === 'cod' 
+                        ? 'bg-orange-100 text-orange-700' 
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {order.paymentMethod?.toLowerCase() === 'cod' ? 'COD PENDING' : 'PAID ONLINE'}
+                    </span>
+
+                    {/* Action Buttons */}
+                    <div className='flex gap-2'>
+                      {order.status === 'New' && (
+                        <button
+                          onClick={() => {
+                            setPendingStatusChange({ orderId: order._id, newStatus: 'Shipped', oldStatus: 'New' })
+                            setShowStatusConfirm(true)
+                          }}
+                          className='px-4 py-2 bg-red-600 hover:bg-orange-500 hover:shadow-lg text-white rounded-lg text-xs font-medium transition-all antialiased tracking-wide'
+                        >
+                          Mark as Shipped
+                        </button>
+                      )}
+                      {order.status && order.status !== 'New' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
+                        <button
+                          onClick={() => {
+                            const nextStatus = order.status === 'Shipped' ? 'Out for Delivery' : 'Delivered'
+                            setPendingStatusChange({ orderId: order._id, newStatus: nextStatus, oldStatus: order.status })
+                            setShowStatusConfirm(true)
+                          }}
+                          className='px-4 py-2 bg-red-600 hover:bg-orange-500 hover:shadow-lg text-white rounded-lg text-xs font-medium transition-all antialiased tracking-wide'
+                        >
+                          Update Status
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details Section - Always Visible */}
+                <div className='p-6 bg-white grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-gray-200'>
+                  {/* Customer Information */}
+                  <div className='border-r border-gray-300 pr-6'>
+                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
+                      <span>👤</span> Customer Information
+                    </p>
+                    <p className='text-sm font-bold text-gray-900 antialiased'>{order.address.firstName} {order.address.lastName}</p>
+                    <p className='text-sm text-gray-900 mt-2 antialiased'>+91 {order.address.phone || 'N/A'}</p>
+                    {order.address.email && <p className='text-sm text-gray-900 antialiased'>{order.address.email}</p>}
+                  </div>
+
+                  {/* Shipping Address */}
+                  <div className='border-r border-gray-300 px-6 md:px-6'>
+                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
+                      <span>📍</span> Shipping Address
+                    </p>
+                    <p className='text-sm text-gray-900 antialiased'>{order.address.street}</p>
+                    <p className='text-sm text-gray-900 antialiased'>{order.address.city}, {order.address.state} {order.address.zipcode}</p>
+                    <p className='text-sm text-gray-900 antialiased'>{order.address.country}</p>
+                  </div>
+
+                  {/* Tracking Details */}
+                  <div className='pl-6 md:pl-6'>
+                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
+                      <span>📦</span> Tracking Details
+                    </p>
+                    {['Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) ? (
+                      <>
+                        <input
+                          type='text'
+                          placeholder='Enter Tracking ID'
+                          value={trackingNumbers[order._id] || ''}
+                          onChange={(e) => setTrackingNumbers(prev => ({ ...prev, [order._id]: e.target.value }))}
+                          onBlur={() => saveTracking(order._id, order.status)}
+                          className='w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-500 font-medium antialiased'
+                        />
+                        <p className='text-xs text-gray-400 mt-2 antialiased'>Tracking info will be sent via SMS once saved</p>
+                      </>
+                    ) : (
+                      <p className='text-xs text-gray-400 italic antialiased'>Available after shipping</p>
+                    )}
+                  </div>
+                </div>
               </div>
-            )
-          })}
-          <div ref={sentinelRef} className='h-2' />
-          {visibleCount < displayed.length && (
-            <div className='flex justify-center items-center py-6 gap-2 text-gray-400 text-sm'>
-              <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin' />
-              <span>Loading more…</span>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className='flex items-center justify-between mt-8 px-6 py-4 bg-white rounded-2xl border border-gray-200'>
+              <p className='text-xs text-gray-900 font-semibold antialiased'>
+                Showing {Math.max(1, (currentPage - 1) * PAGE_SIZE + 1)} to {Math.min(currentPage * PAGE_SIZE, displayed.length)} of {displayed.length} orders
+              </p>
+              <div className='flex gap-2'>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className='px-3 py-1 border border-gray-300 rounded text-gray-700 hover:bg-white disabled:opacity-50 text-sm'
+                >
+                  ←
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded text-xs font-medium ${
+                      currentPage === page
+                        ? 'bg-red-500 text-white'
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className='px-3 py-1 border border-gray-300 rounded text-gray-700 hover:bg-white disabled:opacity-50 text-sm'
+                >
+                  →
+                </button>
+              </div>
             </div>
-          )}
-          {visibleCount >= displayed.length && displayed.length > PAGE_SIZE && (
-            <p className='text-center text-xs text-gray-400 py-4'>All {displayed.length} orders shown</p>
           )}
         </>
       )}
@@ -346,9 +413,13 @@ const Orders = ({ token }) => {
         onClose={() => { setShowStatusConfirm(false); setPendingStatusChange(null) }}
         onConfirm={confirmStatusUpdate}
         title='Update Order Status'
-        message={pendingStatusChange ? `Move order from "${pendingStatusChange.oldStatus}" to "${pendingStatusChange.newStatus}"?` : ''}
+        message={pendingStatusChange ? (
+          <>
+            Move order from <strong className='text-gray-900'>"{pendingStatusChange.oldStatus}"</strong> to <strong className='text-gray-900'>"{pendingStatusChange.newStatus}"</strong>?
+          </>
+        ) : ''}
         confirmLabel='Yes, Update'
-        confirmClassName='bg-blue-600 hover:bg-blue-700 text-white'
+        confirmClassName='bg-red-600 hover:bg-orange-500 text-white font-medium transition-all'
       />
     </div>
   )

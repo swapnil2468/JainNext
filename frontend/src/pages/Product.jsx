@@ -110,7 +110,7 @@ const Product = () => {
           <p className='text-lg text-gray-500 mb-4'>Product not found</p>
           <button 
             onClick={() => navigate('/collection')}
-            className='bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700'
+            className='bg-rose-600 text-white px-6 py-2 rounded-lg hover:bg-rose-700'
           >
             Back to Collection
           </button>
@@ -123,46 +123,82 @@ const Product = () => {
   const displayRetailPrice = productData.retailPrice || productData.price;
 
   return (
-    <div className='border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100'>
+    <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8'>
+      
+      {/* Breadcrumb Navigation */}
+      <div className='pb-6'>
+        <div className='flex items-center gap-2 text-sm text-neutral-600'>
+          <button onClick={() => navigate('/')} className='hover:text-rose-600 transition-colors'>Home</button>
+          <i className='ri-arrow-right-s-line text-neutral-400'></i>
+          <button onClick={() => navigate('/collection')} className='hover:text-rose-600 transition-colors'>Collection</button>
+          <i className='ri-arrow-right-s-line text-neutral-400'></i>
+          <span className='text-neutral-900 font-medium'>{productData.name}</span>
+        </div>
+      </div>
       
       {/*----------- NEW PRODUCT LAYOUT: Image Left (~55%) + Details Right (~45%) -------------- */}
       <div className='flex gap-8 sm:gap-12 flex-col lg:flex-row'>
 
         {/*---------- LEFT: Product Images Section (Thumbnails + Main Image) ------------- */}
-        <div className='w-full lg:w-[55%] flex gap-3'>
-          {/* Thumbnail Strip - Vertical on left side */}
-          <div className='flex flex-col gap-2 overflow-y-auto'>
-            {productData.image.map((item, index) => (
+        <div className='w-full lg:w-[55%] flex flex-col gap-3'>
+          {/* Top part: thumbnails + main image side by side */}
+          <div className='flex gap-3'>
+            {/* Thumbnail Strip - Vertical on left side */}
+            <div className='flex flex-col gap-2 overflow-y-auto'>
+              {productData.image.map((item, index) => (
+                <img 
+                  onClick={() => setImage(item)} 
+                  src={item} 
+                  key={index} 
+                  className={`w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 cursor-pointer border-2 rounded-lg transition-all duration-300 object-cover ${
+                    image === item 
+                      ? 'border-rose-600 shadow-md' 
+                      : 'border-gray-200 hover:border-rose-600'
+                  }`} 
+                  alt="" 
+                />
+              ))}
+            </div>
+
+            {/* Main Image */}
+            <div 
+              className='flex-1 overflow-hidden bg-neutral-50 rounded-2xl border border-neutral-100 shadow-sm cursor-zoom-in relative min-h-[400px]'
+              onMouseMove={handleImageMouseMove}
+              onMouseLeave={handleImageMouseLeave}
+            >
               <img 
-                onClick={() => setImage(item)} 
-                src={item} 
-                key={index} 
-                className={`w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 cursor-pointer border-2 rounded-lg transition-all duration-300 object-cover ${
-                  image === item 
-                    ? 'border-red-700 shadow-md' 
-                    : 'border-gray-200 hover:border-red-700'
-                }`} 
+                className={`w-full h-full min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] object-cover transition-transform duration-150 ease-out ${
+                  isZooming ? 'scale-125' : 'scale-100'
+                }`}
+                style={{
+                  transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`
+                }}
+                src={image} 
                 alt="" 
               />
-            ))}
+            </div>
           </div>
 
-          {/* Main Image */}
-          <div 
-            className='flex-1 overflow-hidden bg-gray-50 rounded-lg shadow-sm cursor-zoom-in relative'
-            onMouseMove={handleImageMouseMove}
-            onMouseLeave={handleImageMouseLeave}
-          >
-            <img 
-              className={`w-full h-auto min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] object-contain transition-transform duration-150 ease-out p-4 ${
-                isZooming ? 'scale-150' : 'scale-100'
-              }`}
-              style={{
-                transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`
-              }}
-              src={image} 
-              alt="" 
-            />
+          {/* Feature badges below image */}
+          <div className='grid grid-cols-3 gap-3'>
+            <div className='flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-neutral-100'>
+              <div className='w-8 h-8 bg-rose-50 rounded-full flex items-center justify-center'>
+                <i className='ri-shield-check-line text-rose-600'></i>
+              </div>
+              <span className='text-xs text-neutral-600 text-center'>Quality Assured</span>
+            </div>
+            <div className='flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-neutral-100'>
+              <div className='w-8 h-8 bg-rose-50 rounded-full flex items-center justify-center'>
+                <i className='ri-truck-line text-rose-600'></i>
+              </div>
+              <span className='text-xs text-neutral-600 text-center'>Free Delivery</span>
+            </div>
+            <div className='flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-neutral-100'>
+              <div className='w-8 h-8 bg-rose-50 rounded-full flex items-center justify-center'>
+                <i className='ri-arrow-go-back-line text-rose-600'></i>
+              </div>
+              <span className='text-xs text-neutral-600 text-center'>Easy Returns</span>
+            </div>
           </div>
         </div>
 
@@ -170,7 +206,7 @@ const Product = () => {
         <div className='w-full lg:w-[45%] flex flex-col'>
           
           {/* Product Title */}
-          <h1 className='font-semibold text-2xl sm:text-3xl mb-2'>{productData.name}</h1>
+          <h1 className='text-3xl md:text-4xl font-light text-neutral-900 mb-3'>{productData.name}</h1>
           
           {/* Brand Name */}
           {productData.specifications?.brand && (
@@ -211,7 +247,7 @@ const Product = () => {
                 {quantity >= (productData.minimumWholesaleQuantity || 10) ? (
                   <p className='text-xs text-green-600 font-medium mt-1'>✔ Wholesale price applied</p>
                 ) : (
-                  <p className='text-xs text-red-600 font-medium mt-1'>⚠️ Add {(productData.minimumWholesaleQuantity || 10) - quantity} more to qualify</p>
+                  <p className='text-xs text-rose-600 font-medium mt-1'>⚠️ Add {(productData.minimumWholesaleQuantity || 10) - quantity} more to qualify</p>
                 )}
               </div>
             ) : userProfile?.role === 'wholesale' && !userProfile?.isApproved ? (
@@ -224,10 +260,15 @@ const Product = () => {
               </div>
             ) : (
               <div>
-                <div className='flex items-center gap-2'>
-                  <p className='text-2xl sm:text-3xl font-semibold'>{currency}{displayRetailPrice}</p>
+                <div className='flex items-baseline gap-3 flex-wrap'>
+                  <span className='text-3xl font-bold text-neutral-900'>{currency}{displayRetailPrice}</span>
                   {productData.compareAtPrice && (
-                    <p className='text-sm text-gray-400 line-through'>{currency}{productData.compareAtPrice}</p>
+                    <>
+                      <span className='text-xl text-neutral-400 line-through'>{currency}{productData.compareAtPrice}</span>
+                      <span className='px-2 py-1 bg-green-50 text-green-700 text-sm font-semibold rounded'>
+                        {Math.round((1 - displayRetailPrice / productData.compareAtPrice) * 100)}% OFF
+                      </span>
+                    </>
                   )}
                 </div>
               </div>
@@ -236,10 +277,10 @@ const Product = () => {
 
           {/* Stock Status */}
           {productData.stock === 0 && (
-            <p className='text-red-600 font-semibold text-base mb-3'>Out of Stock</p>
+            <p className='text-rose-600 font-semibold text-base mb-3'>Out of Stock</p>
           )}
           {productData.stock && productData.stock < 20 && productData.stock > 0 && (
-            <p className='text-red-600 font-semibold text-base mb-3'>⚠️ Hurry! Only {productData.stock} left in stock</p>
+            <p className='text-rose-600 font-semibold text-base mb-3'>⚠️ Hurry! Only {productData.stock} left in stock</p>
           )}
 
           {/* Specifications as Bullet List with Em-Dash */}
@@ -250,7 +291,7 @@ const Product = () => {
                 {Object.entries(productData.specifications).map(([key, value]) => (
                   value && (
                     <li key={key} className='text-base text-gray-700 flex items-start'>
-                      <span className='mr-3 text-red-700 font-bold'>—</span>
+                      <span className='mr-3 text-rose-600 font-bold'>—</span>
                       <span>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}: {value}</span>
                     </li>
                   )
@@ -260,74 +301,69 @@ const Product = () => {
           )}
 
           {/* Quantity + Buttons Section */}
-          <div className='mb-4'>
+          <div className='mb-4 space-y-4'>
+            {/* Quantity Selector - always visible */}
+            <div>
+              <h3 className='text-sm font-semibold text-neutral-900 mb-3'>Quantity</h3>
+              <div className='inline-flex items-center border-2 border-neutral-200 rounded-xl overflow-hidden hover:border-rose-300 transition-colors duration-200'>
+                <button
+                  onClick={() => {
+                    if (quantity > 1) {
+                      const newQuantity = quantity - 1;
+                      setQuantity(newQuantity);
+                      if (isInCart) updateQuantity(productData._id, newQuantity);
+                    }
+                  }}
+                  disabled={quantity <= 1}
+                  className='px-4 py-3 text-base hover:bg-rose-50 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed'
+                >
+                  <i className='ri-subtract-line'></i>
+                </button>
+                <p className='px-6 py-3 border-l border-r border-neutral-200 text-center font-semibold min-w-[60px]'>{quantity}</p>
+                <button
+                  onClick={() => {
+                    const newQuantity = quantity + 1;
+                    if (newQuantity <= 999) {
+                      setQuantity(newQuantity);
+                      if (isInCart) updateQuantity(productData._id, newQuantity);
+                    }
+                  }}
+                  disabled={quantity >= 999}
+                  className='px-4 py-3 text-base hover:bg-rose-50 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed'
+                >
+                  <i className='ri-add-line'></i>
+                </button>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
             {productData.stock === 0 ? (
-              <button 
+              <button
                 disabled
-                className='w-full bg-gray-400 text-white px-8 py-3 text-sm font-medium rounded-lg shadow-md cursor-not-allowed'
+                className='w-full bg-neutral-300 text-neutral-500 px-8 py-4 rounded-xl font-semibold cursor-not-allowed text-sm'
               >
                 OUT OF STOCK
               </button>
-            ) : !isInCart ? (
-              <div className='flex gap-3'>
-                <button 
-                  onClick={() => {
-                    addToCart(productData._id)
-                    setIsInCart(true)
-                  }} 
-                  className='flex-1 bg-red-700 hover:bg-red-600 text-white px-8 py-3 text-sm font-medium rounded-lg transition-all duration-300 active:scale-95 shadow-md hover:shadow-lg'
-                >
-                  ADD TO CART
-                </button>
-                <button 
-                  onClick={() => navigate('/cart')}
-                  className='flex-1 border-2 border-red-700 text-red-700 hover:bg-red-50 px-8 py-3 text-sm font-medium rounded-lg transition-all duration-300 active:scale-95'
-                >
-                  BUY NOW
-                </button>
-              </div>
             ) : (
               <div className='flex gap-3'>
-                <div className='flex items-center border-2 border-red-200 rounded-lg overflow-hidden hover:border-red-300 transition-colors duration-200 flex-1'>
-                  <button 
-                    onClick={() => {
-                      if (quantity > 1) {
-                        const newQuantity = quantity - 1;
-                        setQuantity(newQuantity);
-                        updateQuantity(productData._id, newQuantity);
-                      } else if (quantity === 1) {
-                        setQuantity(0);
-                        updateQuantity(productData._id, 0);
-                        setIsInCart(false);
-                      }
-                    }}
-                    className='px-4 py-2 text-base hover:bg-red-50 transition-colors duration-200'
-                  >
-                    −
-                  </button>
-                  <p className='px-4 py-2 border-l border-r border-red-200 text-center flex-1'>{quantity}</p>
-                  <button 
-                    onClick={() => {
-                      const newQuantity = quantity + 1;
-                      if (newQuantity <= 999) {
-                        setQuantity(newQuantity);
-                        updateQuantity(productData._id, newQuantity);
-                      }
-                    }}
-                    disabled={quantity >= 999}
-                    className={`px-4 py-2 text-base transition-colors duration-200 ${
-                      quantity >= 999 
-                        ? 'cursor-not-allowed opacity-40 bg-gray-100' 
-                        : 'hover:bg-red-50 cursor-pointer'
-                    }`}
-                  >
-                    +
-                  </button>
-                </div>
-                <button 
-                  onClick={() => navigate('/cart')}
-                  className='flex-1 bg-red-600 hover:bg-red-700 text-white px-8 py-3 text-sm font-medium rounded-lg transition-all duration-300 active:scale-95 shadow-md hover:shadow-lg'
+                <button
+                  onClick={() => {
+                    addToCart(productData._id, quantity)
+                    setIsInCart(true)
+                  }}
+                  className='flex-1 bg-white border-2 border-rose-600 text-rose-600 rounded-xl font-semibold hover:bg-rose-50 transition-all shadow-sm hover:shadow-md px-8 py-4 text-sm'
                 >
+                  <i className='ri-shopping-cart-line mr-2'></i>
+                  ADD TO CART
+                </button>
+                <button
+                  onClick={() => {
+                    addToCart(productData._id, quantity)
+                    navigate('/cart')
+                  }}
+                  className='flex-1 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-xl font-semibold hover:from-rose-700 hover:to-rose-800 transition-all shadow-md hover:shadow-lg px-8 py-4 text-sm'
+                >
+                  <i className='ri-flashlight-line mr-2'></i>
                   BUY NOW
                 </button>
               </div>
@@ -338,22 +374,22 @@ const Product = () => {
           <div className='grid grid-cols-2 gap-6 pb-6'>
             {/* Offers Column */}
             <div>
-              <h3 className='font-semibold text-gray-800 mb-3 text-sm'>Offers Available</h3>
+              <h3 className='text-sm font-semibold text-neutral-900 mb-3 uppercase tracking-wide'>Offers Available</h3>
               <ul className='space-y-2 text-sm text-gray-700'>
                 <li className='flex items-start gap-2'>
-                  <span className='text-green-600 mt-0.5'>✓</span>
+                  <i className='ri-check-line text-rose-600 mt-0.5'></i>
                   <span>Free shipping above ₹99</span>
                 </li>
                 <li className='flex items-start gap-2'>
-                  <span className='text-green-600 mt-0.5'>✓</span>
+                  <i className='ri-check-line text-rose-600 mt-0.5'></i>
                   <span>Cash on delivery available</span>
                 </li>
                 <li className='flex items-start gap-2'>
-                  <span className='text-green-600 mt-0.5'>✓</span>
+                  <i className='ri-check-line text-rose-600 mt-0.5'></i>
                   <span>7 day return & exchange policy</span>
                 </li>
                 <li className='flex items-start gap-2'>
-                  <span className='text-green-600 mt-0.5'>✓</span>
+                  <i className='ri-check-line text-rose-600 mt-0.5'></i>
                   <span>100% original product guaranteed</span>
                 </li>
               </ul>
@@ -361,7 +397,7 @@ const Product = () => {
 
             {/* Delivery Column */}
             <div>
-              <h3 className='font-semibold text-gray-800 mb-3 text-sm'>Delivery</h3>
+              <h3 className='text-sm font-semibold text-neutral-900 mb-3 uppercase tracking-wide'>Delivery</h3>
               <div className='text-sm text-gray-700 space-y-2'>
                 <p>✓ Available for all locations</p>
               </div>
@@ -373,14 +409,14 @@ const Product = () => {
       </div>
 
       {/* ---------- Tabs Section (Description + Use Cases) ------------- */}
-      <div className='mt-20'>
-        <div className='flex gap-0 border-b'>
+      <div className='mt-16 bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden'>
+        <div className='flex border-b border-neutral-200'>
           <button
             onClick={() => setActiveTab('description')}
             className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors duration-200 ${
               activeTab === 'description' 
-                ? 'border-red-700 text-red-700 bg-gray-50' 
-                : 'border-transparent text-gray-600 hover:bg-gray-50'
+                ? 'text-rose-600 border-b-2 border-rose-600 bg-rose-50/30' 
+                : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
             }`}
           >
             Description
@@ -390,8 +426,8 @@ const Product = () => {
               onClick={() => setActiveTab('use-cases')}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors duration-200 ${
                 activeTab === 'use-cases' 
-                  ? 'border-red-700 text-red-700 bg-gray-50' 
-                  : 'border-transparent text-gray-600 hover:bg-gray-50'
+                  ? 'text-rose-600 border-b-2 border-rose-600 bg-rose-50/30' 
+                  : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
               }`}
             >
               Use Cases
@@ -399,12 +435,12 @@ const Product = () => {
           )}
         </div>
         
-        <div className='border border-t-0 px-6 py-6 bg-white'>
+        <div className='p-8'>
           {activeTab === 'description' && (
-            <p className='text-gray-600 leading-relaxed'>{productData.description}</p>
+            <p className='text-neutral-700 leading-relaxed'>{productData.description}</p>
           )}
           {activeTab === 'use-cases' && productData.useCases && (
-            <div className='text-gray-600 whitespace-pre-line leading-relaxed'>{productData.useCases}</div>
+            <div className='text-neutral-700 whitespace-pre-line leading-relaxed'>{productData.useCases}</div>
           )}
         </div>
       </div>
@@ -418,7 +454,7 @@ const Product = () => {
       <RelatedProducts category={productData.category} subCategory={productData.subCategory} currentProductId={productData._id} />
 
       {/* --------- display recently viewed products ---------- */}
-      <RecentlyViewed />
+      <RecentlyViewed excludeProductId={productId} />
 
     </div>
   )

@@ -80,6 +80,7 @@ import img14 from './14.jpg'
 import img15 from './15.jpg'
 import img16 from './16.jpg'
 import newone from './newone.png'
+import lamp from './lamp.jpg'
 
 export const assets = {
     logo,
@@ -104,7 +105,8 @@ export const assets = {
     img14,
     img15,
     img16,
-    newone
+    newone,
+    lamp
 }
 
 export const products = [

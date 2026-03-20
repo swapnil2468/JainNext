@@ -170,7 +170,7 @@ const getWholesaleUsers = async (req, res) => {
 // Admin route to approve/reject wholesale application
 const updateWholesaleStatus = async (req, res) => {
     try {
-        const { userId, isApproved } = req.body;
+        const { userId, isApproved, isRevoked, isRejected } = req.body;
 
         const user = await userModel.findById(userId);
         
@@ -182,13 +182,52 @@ const updateWholesaleStatus = async (req, res) => {
             return res.json({ success: false, message: "User is not a wholesale applicant" });
         }
 
-        user.isApproved = isApproved;
+        user.isApproved = isApproved !== undefined ? isApproved : user.isApproved;
+        user.isRevoked = isRevoked !== undefined ? isRevoked : user.isRevoked;
+        user.isRejected = isRejected !== undefined ? isRejected : user.isRejected;
         await user.save();
 
-        const status = isApproved ? 'approved' : 'rejected';
+        let status = 'updated';
+        if (isRejected) status = 'rejected';
+        else if (isRevoked) status = 'revoked';
+        else if (isApproved) status = 'approved';
+        
         res.json({ success: true, message: `Wholesale application ${status}` });
     } catch (error) {
         console.error('Error updating wholesale status:', error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const removeWholesaleApplication = async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        const user = await userModel.findById(userId);
+        
+        if (!user) {
+            return res.json({ success: false, message: "User not found" });
+        }
+
+        if (user.role !== 'wholesale') {
+            return res.json({ success: false, message: "User is not a wholesale applicant" });
+        }
+
+        // Reset wholesale fields
+        user.businessName = '';
+        user.gstNumber = '';
+        user.businessPhone = '';
+        user.businessAddress = '';
+        user.businessDescription = '';
+        user.isApproved = false;
+        user.isRevoked = false;
+        user.role = 'retail'; // Set back to retail user
+        
+        await user.save();
+
+        res.json({ success: true, message: 'Wholesaler removed successfully' });
+    } catch (error) {
+        console.error('Error removing wholesale application:', error);
         res.json({ success: false, message: error.message });
     }
 }
@@ -280,4 +319,4 @@ const resetPassword = async (req, res) => {
 }
 
 
-export { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, forgotPassword, resetPassword }
+export { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword }

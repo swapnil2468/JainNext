@@ -145,8 +145,6 @@ const addProduct = async (req, res) => {
 // function for list product
 const listProducts = async (req, res) => {
     try {
-        const products = await productModel.find({});
-        
         // CRITICAL SECURITY: Filter pricing based on user role
         const { token } = req.headers;
         
@@ -160,6 +158,10 @@ const listProducts = async (req, res) => {
         } catch (error) {
             // Not an admin token, continue to user check
         }
+        
+        // Fetch products - admins see all, customers see only active products
+        const query = isAdmin ? {} : { status: { $nin: ['draft', 'archived'] } };
+        const products = await productModel.find(query);
         
         if (isAdmin) {
             // Admins see full unfiltered data
@@ -353,4 +355,34 @@ const updateProduct = async (req, res) => {
     }
 }
 
-export { listProducts, addProduct, removeProduct, singleProduct, updateProduct }
+// function to update product status
+const updateProductStatus = async (req, res) => {
+    try {
+        const { productIds, status } = req.body
+        
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.json({ success: false, message: "No products selected" })
+        }
+        
+        if (!['active', 'draft', 'archived'].includes(status)) {
+            return res.json({ success: false, message: "Invalid status" })
+        }
+        
+        const result = await productModel.updateMany(
+            { _id: { $in: productIds } },
+            { $set: { status } }
+        )
+        
+        res.json({ 
+            success: true, 
+            message: `Updated ${result.modifiedCount} product(s)`,
+            modifiedCount: result.modifiedCount
+        })
+
+    } catch (error) {
+        console.error('Error updating product status:', error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
+export { listProducts, addProduct, removeProduct, singleProduct, updateProduct, updateProductStatus }

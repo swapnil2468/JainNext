@@ -1,22 +1,20 @@
 import React from 'react'
 import Hero from '../components/Hero'
-import LatestCollection from '../components/LatestCollection'
 import BestSeller from '../components/BestSeller'
-import OurPolicy from '../components/OurPolicy'
-import NewsletterBox from '../components/NewsletterBox'
-import RecentlyViewed from '../components/RecentlyViewed'
+import ProductCategories from '../components/ProductCategories'
 import WholesaleBanner from '../components/WholesaleBanner'
+import WhyChooseUs from '../components/WhyChooseUs'
+import NewsletterBox from '../components/NewsletterBox'
 
 const Home = () => {
   return (
-    <div>
+    <div className='w-full bg-gradient-to-b from-neutral-50 via-white to-neutral-50'>
       <Hero />
-      <LatestCollection/>
-      <WholesaleBanner/>
-      <BestSeller/>
-      <RecentlyViewed/>
-      <OurPolicy/>
-      <NewsletterBox/>
+      <BestSeller />
+      <ProductCategories />
+      <WholesaleBanner />
+      <WhyChooseUs />
+      <NewsletterBox />
     </div>
   )
 }

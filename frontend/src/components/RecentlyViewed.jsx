@@ -3,7 +3,7 @@ import { ShopContext } from '../context/ShopContext'
 import Title from './Title'
 import ProductItem from './ProductItem'
 
-const RecentlyViewed = () => {
+const RecentlyViewed = ({ excludeProductId }) => {
   const { products } = useContext(ShopContext)
   const [recentlyViewed, setRecentlyViewed] = useState([])
 
@@ -11,14 +11,14 @@ const RecentlyViewed = () => {
     // Get recently viewed product IDs from localStorage
     const viewedIds = JSON.parse(localStorage.getItem('recentlyViewed') || '[]')
     
-    // Filter products that match the viewed IDs, maintaining the order
+    // Filter products that match the viewed IDs, maintaining the order, excluding current product
     const viewedProducts = viewedIds
       .map(id => products.find(product => product._id === id))
-      .filter(Boolean) // Remove any null/undefined values
+      .filter(product => product && product._id !== excludeProductId) // Remove any null/undefined values and current product
       .slice(0, 8) // Limit to 8 products
     
     setRecentlyViewed(viewedProducts)
-  }, [products])
+  }, [products, excludeProductId])
 
   // Don't render if no recently viewed products
   if (recentlyViewed.length === 0) {

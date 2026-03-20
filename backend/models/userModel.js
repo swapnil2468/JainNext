@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
     cartData: { type: Object, default: {} },
     role: { type: String, enum: ['retail', 'wholesale'], default: 'retail' },
     isApproved: { type: Boolean, default: false },
-    businessName: { type: String, default: '' },
+    isRevoked: { type: Boolean, default: false },    isRejected: { type: Boolean, default: false },    businessName: { type: String, default: '' },
     gstNumber: { type: String, default: '' },
     businessPhone: { type: String, default: '' },
     businessAddress: { type: String, default: '' },
