@@ -28,6 +28,17 @@ const Add = ({token}) => {
    const [allowBackorders, setAllowBackorders] = useState(false);
    const [hasVariants, setHasVariants] = useState(false)
    const [variants, setVariants] = useState([])
+   const [variantTypes, setVariantTypes] = useState([])
+   
+   // Available variant types
+   const availableVariantTypes = [
+     { id: 'color', label: 'Color' },
+     { id: 'length', label: 'Length' },
+     { id: 'size', label: 'Size' },
+     { id: 'material', label: 'Material' },
+     { id: 'pattern', label: 'Pattern' },
+     { id: 'wattage', label: 'Wattage' }
+   ]
 
    // Specifications state
    const [specifications, setSpecifications] = useState({
@@ -125,17 +136,87 @@ const Add = ({token}) => {
      });
    }
 
+   const toggleVariantType = (typeId) => {
+     const newTypes = variantTypes.includes(typeId) 
+       ? variantTypes.filter(t => t !== typeId)
+       : [...variantTypes, typeId]
+     setVariantTypes(newTypes)
+     
+     // Reset variants when variant types change
+     if (newTypes.length === 0) {
+       setVariants([])
+     } else if (variants.length > 0) {
+       // Remove old variants and let user add new ones
+       setVariants([])
+     }
+   }
+
+   // Check if using color+length nested structure
+   const isColorLengthMode = variantTypes.includes('color') && variantTypes.includes('length')
+
    const addVariant = () => {
-     setVariants([...variants, {
-       color: '',
-       colorCode: '#ef4444',
+     if (variantTypes.length === 0) {
+       toast.error('Please select at least one variant type')
+       return
+     }
+     
+     if (isColorLengthMode) {
+       // Color + Length mode: create color variant with empty lengths array
+       const newVariant = {
+         color: '',
+         colorCode: '#ef4444',
+         images: [null, null, null, null],
+         previews: [null, null, null, null],
+         lengths: []
+       }
+       setVariants([...variants, newVariant])
+     } else {
+       // Other modes: flat structure
+       const newVariant = {
+         price: '',
+         compareAtPrice: '',
+         wholesalePrice: '',
+         stock: '',
+         images: [null, null, null, null],
+         previews: [null, null, null, null]
+       }
+       
+       variantTypes.forEach(type => {
+         newVariant[type] = ''
+       })
+       
+       if (variantTypes.includes('color')) {
+         newVariant.colorCode = '#ef4444'
+       } else {
+         newVariant.colorCode = '#000000'
+       }
+       
+       setVariants([...variants, newVariant])
+     }
+   }
+
+   const addLength = (colorIndex) => {
+     const updated = [...variants]
+     updated[colorIndex].lengths.push({
+       length: '',
        price: '',
        compareAtPrice: '',
        wholesalePrice: '',
-       stock: '',
-       images: [null, null, null, null],
-       previews: [null, null, null, null]
-     }])
+       stock: ''
+     })
+     setVariants(updated)
+   }
+
+   const removeLength = (colorIndex, lengthIndex) => {
+     const updated = [...variants]
+     updated[colorIndex].lengths.splice(lengthIndex, 1)
+     setVariants(updated)
+   }
+
+   const updateLength = (colorIndex, lengthIndex, field, value) => {
+     const updated = [...variants]
+     updated[colorIndex].lengths[lengthIndex][field] = value
+     setVariants(updated)
    }
 
    const removeVariant = (index) => {
@@ -180,23 +261,64 @@ const Add = ({token}) => {
       toast.error('Please upload at least one product image')
       return
     }
+    
     if (hasVariants && variants.length === 0) {
-      toast.error('Please add at least one color variant')
+      toast.error(`Please add at least one variant for ${variantTypes.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')}`)
       return
     }
+    
     if (hasVariants) {
-      for (let i = 0; i < variants.length; i++) {
-        if (!variants[i].color) {
-          toast.error(`Please enter color name for Variant ${i + 1}`)
-          return
+      if (isColorLengthMode) {
+        // Validation for color+length mode
+        for (let i = 0; i < variants.length; i++) {
+          // Check color
+          if (!variants[i].color || variants[i].color.trim() === '') {
+            toast.error(`Please enter color for Variant ${i + 1}`)
+            return
+          }
+          // Check at least one length
+          if (variants[i].lengths.length === 0) {
+            toast.error(`Please add at least one length for ${variants[i].color} (Variant ${i + 1})`)
+            return
+          }
+          // Check all lengths
+          for (let j = 0; j < variants[i].lengths.length; j++) {
+            if (!variants[i].lengths[j].length || variants[i].lengths[j].length.trim() === '') {
+              toast.error(`Please enter length for ${variants[i].color} - Length ${j + 1}`)
+              return
+            }
+            if (!variants[i].lengths[j].price && variants[i].lengths[j].price !== 0) {
+              toast.error(`Please enter price for ${variants[i].color} - ${variants[i].lengths[j].length}`)
+              return
+            }
+            if (!variants[i].lengths[j].stock && variants[i].lengths[j].stock !== 0) {
+              toast.error(`Please enter stock for ${variants[i].color} - ${variants[i].lengths[j].length}`)
+              return
+            }
+          }
+          // Check images
+          if (variants[i].images.every(img => img === null)) {
+            toast.error(`Please upload at least one image for ${variants[i].color}`)
+            return
+          }
         }
-        if (!variants[i].stock && variants[i].stock !== 0) {
-          toast.error(`Please enter stock for Variant ${i + 1}`)
-          return
-        }
-        if (variants[i].images.every(img => img === null)) {
-          toast.error(`Please upload at least one image for Variant ${i + 1}`)
-          return
+      } else {
+        // Validation for flat mode
+        for (let i = 0; i < variants.length; i++) {
+          for (const type of variantTypes) {
+            if (!variants[i][type] || variants[i][type].trim() === '') {
+              toast.error(`Please enter ${type} for Variant ${i + 1}`)
+              return
+            }
+          }
+          if (!variants[i].stock && variants[i].stock !== 0) {
+            toast.error(`Please enter stock for Variant ${i + 1}`)
+            return
+          }
+          if (variants[i].images.every(img => img === null)) {
+            toast.error(`Please upload at least one image for Variant ${i + 1}`)
+            return
+          }
         }
       }
     }
@@ -235,25 +357,80 @@ const Add = ({token}) => {
       formData.append('hasVariants', hasVariants)
 
       if (hasVariants) {
-        // Append variant data as JSON
-        const variantsData = variants.map(v => ({
-          color: v.color,
-          colorCode: v.colorCode,
-          price: v.price || '',
-          compareAtPrice: v.compareAtPrice || '',
-          wholesalePrice: v.wholesalePrice || '',
-          stock: v.stock || 0
-        }))
+        // Send variant types
+        formData.append('variantTypes', JSON.stringify(variantTypes))
+        
+        // Build flat variants array
+        let variantsData = []
+        
+        if (isColorLengthMode) {
+          // Flatten nested color+length structure
+          variants.forEach(colorVariant => {
+            colorVariant.lengths.forEach(lengthVariant => {
+              variantsData.push({
+                color: colorVariant.color,
+                colorCode: colorVariant.colorCode || '#000000',
+                length: lengthVariant.length,
+                price: lengthVariant.price ? Number(lengthVariant.price) : undefined,
+                compareAtPrice: lengthVariant.compareAtPrice ? Number(lengthVariant.compareAtPrice) : undefined,
+                wholesalePrice: lengthVariant.wholesalePrice ? Number(lengthVariant.wholesalePrice) : undefined,
+                stock: Number(lengthVariant.stock) || 0
+              })
+            })
+          })
+        } else {
+          // Flat structure - keep as is
+          variantsData = variants.map(v => {
+            const variantData = {
+              price: v.price || '',
+              compareAtPrice: v.compareAtPrice || '',
+              wholesalePrice: v.wholesalePrice || '',
+              stock: v.stock || 0
+            }
+            
+            // Add all variant type attributes
+            variantTypes.forEach(type => {
+              variantData[type] = v[type] || ''
+            })
+            
+            // Add legacy color fields
+            if (variantTypes.includes('color')) {
+              variantData.color = v.color
+              variantData.colorCode = v.colorCode || '#000000'
+            } else {
+              variantData.colorCode = '#000000'
+            }
+            
+            return variantData
+          })
+        }
+        
         formData.append('variants', JSON.stringify(variantsData))
 
-        // Append variant images (only if images exist)
-        variants.forEach((variant, vIndex) => {
-          variant.images.forEach((img, imgIndex) => {
-            if (img && img instanceof File) {
-              formData.append(`variantImage_${vIndex}_${imgIndex}`, img)
-            }
+        // Append variant images
+        if (isColorLengthMode) {
+          // In color+length mode, each color's images need to be uploaded for EACH flattened variant
+          let flatVariantIndex = 0
+          variants.forEach((colorVariant) => {
+            colorVariant.lengths.forEach((lengthVariant) => {
+              colorVariant.images.forEach((img, imgIndex) => {
+                if (img && img instanceof File) {
+                  formData.append(`variantImage_${flatVariantIndex}_${imgIndex}`, img)
+                }
+              })
+              flatVariantIndex++
+            })
           })
-        })
+        } else {
+          // In flat mode, images are per variant
+          variants.forEach((variant, vIndex) => {
+            variant.images.forEach((img, imgIndex) => {
+              if (img && img instanceof File) {
+                formData.append(`variantImage_${vIndex}_${imgIndex}`, img)
+              }
+            })
+          })
+        }
       } else {
         // Append base images
         image1 && formData.append("image1",image1)
@@ -342,12 +519,12 @@ const Add = ({token}) => {
             <div className='flex items-center justify-between mb-6'>
               <div>
                 <h3 className='text-lg font-semibold text-gray-900'>Product Images & Variants</h3>
-                <p className='text-sm text-gray-500 mt-1'>Choose if this product comes in multiple colors</p>
+                <p className='text-sm text-gray-500 mt-1'>Choose if this product comes in multiple variants</p>
               </div>
               <div className='flex items-center gap-3'>
-                <span className='text-sm font-medium text-gray-700'>Color Variants</span>
+                <span className='text-sm font-medium text-gray-700'>Use Variants</span>
                 <div
-                  onClick={() => { setHasVariants(!hasVariants); setVariants([]) }}
+                  onClick={() => { setHasVariants(!hasVariants); setVariantTypes([]); setVariants([]) }}
                   className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-200 flex items-center px-1 ${hasVariants ? 'bg-red-600' : 'bg-gray-300'}`}
                 >
                   <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${hasVariants ? 'translate-x-6' : 'translate-x-0'}`}></div>
@@ -380,127 +557,346 @@ const Add = ({token}) => {
             ) : (
               // Variant mode
               <div className='space-y-4'>
-                {variants.map((variant, vIndex) => (
-                  <div key={vIndex} className='border-2 border-dashed border-gray-200 rounded-2xl p-5 hover:border-red-200 transition-colors'>
-                    <div className='flex items-center justify-between mb-4'>
-                      <div className='flex items-center gap-3'>
-                        <div
-                          className='w-8 h-8 rounded-full border-2 border-white shadow-md flex-shrink-0'
-                          style={{ backgroundColor: variant.colorCode }}
-                        ></div>
-                        <span className='font-medium text-gray-900'>
-                          {variant.color || `Variant ${vIndex + 1}`}
-                        </span>
-                      </div>
-                      <button
-                        type='button'
-                        onClick={() => removeVariant(vIndex)}
-                        className='text-sm text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded-lg hover:bg-red-50 transition-all'
-                      >
-                        Remove
-                      </button>
-                    </div>
-
-                    <div className='grid grid-cols-2 gap-3 mb-4'>
-                      <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>Color Name *</label>
+                {/* Variant Type Selection */}
+                <div className='bg-gray-50 rounded-xl p-4 mb-4'>
+                  <label className='block text-sm font-medium text-gray-900 mb-3'>Select Variant Types</label>
+                  <div className='grid grid-cols-2 md:grid-cols-3 gap-3'>
+                    {availableVariantTypes.map((type) => (
+                      <label key={type.id} className='flex items-center cursor-pointer bg-white p-2 rounded-lg border border-gray-200 hover:border-red-400 transition-all'>
                         <input
-                          type='text'
-                          placeholder='e.g. Red, Blue, Warm White'
-                          value={variant.color}
-                          onChange={(e) => updateVariant(vIndex, 'color', e.target.value)}
-                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                          type='checkbox'
+                          checked={variantTypes.includes(type.id)}
+                          onChange={() => toggleVariantType(type.id)}
+                          className='w-4 h-4 rounded accent-red-600'
                         />
-                      </div>
-                      <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>Color Swatch</label>
-                        <div className='flex items-center gap-2'>
-                          <input
-                            type='color'
-                            value={variant.colorCode}
-                            onChange={(e) => updateVariant(vIndex, 'colorCode', e.target.value)}
-                            className='w-10 h-10 rounded-xl border border-gray-200 cursor-pointer p-0.5'
-                          />
-                          <span className='text-xs text-gray-400 font-mono'>{variant.colorCode}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className='grid grid-cols-4 gap-3 mb-4'>
-                      <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>Price ₹ *</label>
-                        <input
-                          type='number'
-                          placeholder='0'
-                          value={variant.price}
-                          onChange={(e) => updateVariant(vIndex, 'price', e.target.value)}
-                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
-                        />
-                      </div>
-                      <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>Compare at ₹</label>
-                        <input
-                          type='number'
-                          placeholder='Original price'
-                          value={variant.compareAtPrice}
-                          onChange={(e) => updateVariant(vIndex, 'compareAtPrice', e.target.value)}
-                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
-                        />
-                      </div>
-                      <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>Wholesale ₹</label>
-                        <input
-                          type='number'
-                          placeholder='Optional'
-                          value={variant.wholesalePrice}
-                          onChange={(e) => updateVariant(vIndex, 'wholesalePrice', e.target.value)}
-                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
-                        />
-                      </div>
-                      <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>Stock *</label>
-                        <input
-                          type='number'
-                          placeholder='0'
-                          value={variant.stock}
-                          onChange={(e) => updateVariant(vIndex, 'stock', e.target.value)}
-                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className='block text-xs font-medium text-gray-600 mb-2'>Images (up to 4) *</label>
-                      <div className='flex gap-3'>
-                        {[0, 1, 2, 3].map((imgIndex) => (
-                          <label key={imgIndex} className='cursor-pointer'>
-                            <div className='w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors overflow-hidden flex items-center justify-center bg-gray-50'>
-                              {variant.previews[imgIndex] ? (
-                                <img src={variant.previews[imgIndex]} className='w-full h-full object-cover' alt='' />
-                              ) : (
-                                <span className='text-2xl text-gray-300'>+</span>
-                              )}
-                            </div>
-                            <input
-                              type='file'
-                              accept='image/*'
-                              hidden
-                              onChange={(e) => handleVariantImage(vIndex, imgIndex, e.target.files[0])}
-                            />
-                          </label>
-                        ))}
-                      </div>
-                    </div>
+                        <span className='ml-2 text-sm font-medium text-gray-900'>{type.label}</span>
+                      </label>
+                    ))}
                   </div>
-                ))}
+                </div>
 
-                <button
-                  type='button'
-                  onClick={addVariant}
-                  className='w-full py-3 border-2 border-dashed border-red-200 text-red-500 rounded-2xl hover:border-red-400 hover:bg-red-50 transition-all text-sm font-medium flex items-center justify-center gap-2'
-                >
-                  <span className='text-lg'>+</span> Add Color Variant
-                </button>
+                {variantTypes.length > 0 && (
+                  <>
+                    {isColorLengthMode ? (
+                      // Color + Length nested mode
+                      <>
+                        {variants.map((variant, vIndex) => (
+                          <div key={vIndex} className='border-2 border-dashed border-gray-200 rounded-2xl p-5 hover:border-red-200 transition-colors'>
+                            <div className='flex items-center justify-between mb-4'>
+                              <div>
+                                <span className='font-medium text-gray-900'>
+                                  Color {vIndex + 1}
+                                </span>
+                                {variant.color && (
+                                  <div className='flex items-center gap-2 mt-1'>
+                                    <div
+                                      className='w-6 h-6 rounded-full border-2 border-white shadow-md flex-shrink-0'
+                                      style={{ backgroundColor: variant.colorCode }}
+                                    ></div>
+                                    <span className='text-sm text-gray-600'>{variant.color}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => removeVariant(vIndex)}
+                                className='text-sm text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded-lg hover:bg-red-50 transition-all'
+                              >
+                                Remove Color
+                              </button>
+                            </div>
+
+                            {/* Color Fields */}
+                            <div className='grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-gray-200'>
+                              <div>
+                                <label className='block text-xs font-medium text-gray-600 mb-1'>Color Name *</label>
+                                <input
+                                  type='text'
+                                  placeholder='e.g. Red, Blue, Warm White'
+                                  value={variant.color || ''}
+                                  onChange={(e) => updateVariant(vIndex, 'color', e.target.value)}
+                                  className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                />
+                              </div>
+                              <div>
+                                <label className='block text-xs font-medium text-gray-600 mb-1'>Color Swatch</label>
+                                <div className='flex items-center gap-2'>
+                                  <input
+                                    type='color'
+                                    value={variant.colorCode || '#ef4444'}
+                                    onChange={(e) => updateVariant(vIndex, 'colorCode', e.target.value)}
+                                    className='w-10 h-10 rounded-xl border border-gray-200 cursor-pointer p-0.5'
+                                  />
+                                  <span className='text-xs text-gray-400 font-mono'>{variant.colorCode}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Images for Color */}
+                            <div className='mb-4 pb-4 border-b border-gray-200'>
+                              <label className='block text-xs font-medium text-gray-600 mb-2'>Images for {variant.color || 'this color'} (up to 4) *</label>
+                              <div className='flex gap-3'>
+                                {[0, 1, 2, 3].map((imgIndex) => (
+                                  <label key={imgIndex} className='cursor-pointer'>
+                                    <div className='w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors overflow-hidden flex items-center justify-center bg-gray-50'>
+                                      {variant.previews[imgIndex] ? (
+                                        <img src={variant.previews[imgIndex]} className='w-full h-full object-cover' alt='' />
+                                      ) : (
+                                        <span className='text-2xl text-gray-300'>+</span>
+                                      )}
+                                    </div>
+                                    <input
+                                      type='file'
+                                      accept='image/*'
+                                      hidden
+                                      onChange={(e) => handleVariantImage(vIndex, imgIndex, e.target.files[0])}
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Lengths for this Color */}
+                            <div className='space-y-3 mb-4'>
+                              <div className='flex items-center justify-between'>
+                                <label className='block text-sm font-medium text-gray-900'>Length Variants</label>
+                                <span className='text-xs text-gray-500'>{variant.lengths.length} length(s)</span>
+                              </div>
+
+                              {variant.lengths.map((length, lIndex) => (
+                                <div key={lIndex} className='bg-gray-50 rounded-xl p-3 grid grid-cols-5 gap-2 items-end'>
+                                  <div>
+                                    <label className='block text-xs font-medium text-gray-600 mb-1'>Length *</label>
+                                    <input
+                                      type='text'
+                                      placeholder='e.g. 5m, 10m'
+                                      value={length.length || ''}
+                                      onChange={(e) => updateLength(vIndex, lIndex, 'length', e.target.value)}
+                                      className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className='block text-xs font-medium text-gray-600 mb-1'>Price ₹ *</label>
+                                    <input
+                                      type='number'
+                                      placeholder='0'
+                                      value={length.price}
+                                      onChange={(e) => updateLength(vIndex, lIndex, 'price', e.target.value)}
+                                      className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className='block text-xs font-medium text-gray-600 mb-1'>Compare ₹</label>
+                                    <input
+                                      type='number'
+                                      placeholder='Optional'
+                                      value={length.compareAtPrice}
+                                      onChange={(e) => updateLength(vIndex, lIndex, 'compareAtPrice', e.target.value)}
+                                      className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className='block text-xs font-medium text-gray-600 mb-1'>Wholesale ₹</label>
+                                    <input
+                                      type='number'
+                                      placeholder='Optional'
+                                      value={length.wholesalePrice}
+                                      onChange={(e) => updateLength(vIndex, lIndex, 'wholesalePrice', e.target.value)}
+                                      className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className='block text-xs font-medium text-gray-600 mb-1'>Stock *</label>
+                                    <input
+                                      type='number'
+                                      placeholder='0'
+                                      value={length.stock}
+                                      onChange={(e) => updateLength(vIndex, lIndex, 'stock', e.target.value)}
+                                      className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                    />
+                                  </div>
+                                  <button
+                                    type='button'
+                                    onClick={() => removeLength(vIndex, lIndex)}
+                                    className='text-xs text-red-500 hover:text-red-700 font-medium px-2 py-2 rounded hover:bg-red-50 transition-all'
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              ))}
+
+                              <button
+                                type='button'
+                                onClick={() => addLength(vIndex)}
+                                className='w-full py-2 text-sm border border-dashed border-red-300 text-red-600 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-medium'
+                              >
+                                + Add Length
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      // Flat mode - existing code
+                      <>
+                        {variants.map((variant, vIndex) => (
+                          <div key={vIndex} className='border-2 border-dashed border-gray-200 rounded-2xl p-5 hover:border-red-200 transition-colors'>
+                            <div className='flex items-center justify-between mb-4'>
+                              <div>
+                                <span className='font-medium text-gray-900'>
+                                  Variant {vIndex + 1}
+                                </span>
+                                {variantTypes.includes('color') && variant.color && (
+                                  <div className='flex items-center gap-2 mt-1'>
+                                    <div
+                                      className='w-6 h-6 rounded-full border-2 border-white shadow-md flex-shrink-0'
+                                      style={{ backgroundColor: variant.colorCode }}
+                                    ></div>
+                                    <span className='text-sm text-gray-600'>{variant.color}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => removeVariant(vIndex)}
+                                className='text-sm text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded-lg hover:bg-red-50 transition-all'
+                              >
+                                Remove
+                              </button>
+                            </div>
+
+                            {/* Dynamic attribute fields based on selected variant types */}
+                            <div className='grid gap-3 mb-4'>
+                              {variantTypes.map((type) => (
+                                <div key={type}>
+                                  {type === 'color' ? (
+                                    <div className='grid grid-cols-2 gap-3'>
+                                      <div>
+                                        <label className='block text-xs font-medium text-gray-600 mb-1'>Color Name *</label>
+                                        <input
+                                          type='text'
+                                          placeholder='e.g. Red, Blue, Warm White'
+                                          value={variant[type] || ''}
+                                          onChange={(e) => updateVariant(vIndex, type, e.target.value)}
+                                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className='block text-xs font-medium text-gray-600 mb-1'>Color Swatch</label>
+                                        <div className='flex items-center gap-2'>
+                                          <input
+                                            type='color'
+                                            value={variant.colorCode || '#ef4444'}
+                                            onChange={(e) => updateVariant(vIndex, 'colorCode', e.target.value)}
+                                            className='w-10 h-10 rounded-xl border border-gray-200 cursor-pointer p-0.5'
+                                          />
+                                          <span className='text-xs text-gray-400 font-mono'>{variant.colorCode}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <label className='block text-xs font-medium text-gray-600 mb-1'>
+                                        {availableVariantTypes.find(t => t.id === type)?.label} *
+                                      </label>
+                                      <input
+                                        type='text'
+                                        placeholder={`Enter ${type}...`}
+                                        value={variant[type] || ''}
+                                        onChange={(e) => updateVariant(vIndex, type, e.target.value)}
+                                        className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Pricing and Stock */}
+                            <div className='grid grid-cols-4 gap-3 mb-4'>
+                              <div>
+                                <label className='block text-xs font-medium text-gray-600 mb-1'>Price ₹ *</label>
+                                <input
+                                  type='number'
+                                  placeholder='0'
+                                  value={variant.price}
+                                  onChange={(e) => updateVariant(vIndex, 'price', e.target.value)}
+                                  className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                />
+                              </div>
+                              <div>
+                                <label className='block text-xs font-medium text-gray-600 mb-1'>Compare at ₹</label>
+                                <input
+                                  type='number'
+                                  placeholder='Original price'
+                                  value={variant.compareAtPrice}
+                                  onChange={(e) => updateVariant(vIndex, 'compareAtPrice', e.target.value)}
+                                  className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                />
+                              </div>
+                              <div>
+                                <label className='block text-xs font-medium text-gray-600 mb-1'>Wholesale ₹</label>
+                                <input
+                                  type='number'
+                                  placeholder='Optional'
+                                  value={variant.wholesalePrice}
+                                  onChange={(e) => updateVariant(vIndex, 'wholesalePrice', e.target.value)}
+                                  className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                />
+                              </div>
+                              <div>
+                                <label className='block text-xs font-medium text-gray-600 mb-1'>Stock *</label>
+                                <input
+                                  type='number'
+                                  placeholder='0'
+                                  value={variant.stock}
+                                  onChange={(e) => updateVariant(vIndex, 'stock', e.target.value)}
+                                  className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                                />
+                              </div>
+                            </div>
+
+                            {/* Images */}
+                            <div>
+                              <label className='block text-xs font-medium text-gray-600 mb-2'>Images (up to 4) *</label>
+                              <div className='flex gap-3'>
+                                {[0, 1, 2, 3].map((imgIndex) => (
+                                  <label key={imgIndex} className='cursor-pointer'>
+                                    <div className='w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors overflow-hidden flex items-center justify-center bg-gray-50'>
+                                      {variant.previews[imgIndex] ? (
+                                        <img src={variant.previews[imgIndex]} className='w-full h-full object-cover' alt='' />
+                                      ) : (
+                                        <span className='text-2xl text-gray-300'>+</span>
+                                      )}
+                                    </div>
+                                    <input
+                                      type='file'
+                                      accept='image/*'
+                                      hidden
+                                      onChange={(e) => handleVariantImage(vIndex, imgIndex, e.target.files[0])}
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    <button
+                      type='button'
+                      onClick={addVariant}
+                      className='w-full py-3 border-2 border-dashed border-red-200 text-red-500 rounded-2xl hover:border-red-400 hover:bg-red-50 transition-all text-sm font-medium flex items-center justify-center gap-2'
+                    >
+                      <span className='text-lg'>+</span> Add Another {isColorLengthMode ? 'Color' : 'Variant'}
+                    </button>
+                  </>
+                )}
+
+                {variantTypes.length === 0 && (
+                  <p className='text-sm text-gray-500 text-center py-4'>Select variant types above to start adding variants</p>
+                )}
               </div>
             )}
           </div>

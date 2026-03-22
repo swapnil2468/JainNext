@@ -72,15 +72,28 @@ const ShopContextProvider = (props) => {
     }
 
 
-    const addToCart = async (itemId, quantity = 1, variantColor = null) => {
+    const addToCart = async (itemId, quantity = 1, variantColor = null, selectedAttributes = null) => {
       const product = products.find(p => p._id === itemId)
       if (!product) {
         toast.error('Product not found')
         return
       }
 
-      // Always use variant-aware cart key
-      const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+      // Support both old format (variantColor) and new format (selectedAttributes)
+      let cartKey
+      if (selectedAttributes && Object.keys(selectedAttributes).length > 0) {
+        // New format: encode all attributes
+        const attrStrings = Object.entries(selectedAttributes)
+          .map(([type, value]) => `${type}:${value}`)
+          .join('::')
+        cartKey = `${itemId}__${attrStrings}`
+      } else if (variantColor) {
+        // Backward compatibility: old format
+        cartKey = `${itemId}__${variantColor}`
+      } else {
+        // No variant
+        cartKey = itemId
+      }
 
       const currentQty = cartItems[cartKey] || 0
       const newQty = currentQty + quantity
@@ -94,7 +107,7 @@ const ShopContextProvider = (props) => {
 
       // Remove any old entry without variant suffix if switching to variant
       // This prevents duplicate entries
-      if (variantColor && cartData[itemId] && !cartData[`${itemId}__${variantColor}`]) {
+      if ((variantColor || selectedAttributes) && cartData[itemId] && !cartData[cartKey]) {
         delete cartData[itemId]
       }
 
@@ -103,9 +116,15 @@ const ShopContextProvider = (props) => {
 
       if (token) {
         try {
+          // Send both formats to backend for compatibility
           await axios.post(
             backendUrl + '/api/cart/add',
-            { itemId, quantity, variantColor },
+            { 
+              itemId, 
+              quantity, 
+              variantColor,
+              selectedAttributes: selectedAttributes || (variantColor ? { color: variantColor } : null)
+            },
             { headers: { token } }
           )
         } catch (error) {
@@ -118,14 +137,28 @@ const ShopContextProvider = (props) => {
     }
 
     // Set cart quantity to exact amount (used for quick view modal) instead of adding
-    const setCartQuantity = async (itemId, quantity, variantColor = null) => {
+    const setCartQuantity = async (itemId, quantity, variantColor = null, selectedAttributes = null) => {
       const product = products.find(p => p._id === itemId)
       if (!product) {
         toast.error('Product not found')
         return
       }
 
-      const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+      // Support both old format (variantColor) and new format (selectedAttributes)
+      let cartKey
+      if (selectedAttributes && Object.keys(selectedAttributes).length > 0) {
+        // New format: encode all attributes
+        const attrStrings = Object.entries(selectedAttributes)
+          .map(([type, value]) => `${type}:${value}`)
+          .join('::')
+        cartKey = `${itemId}__${attrStrings}`
+      } else if (variantColor) {
+        // Backward compatibility: old format
+        cartKey = `${itemId}__${variantColor}`
+      } else {
+        // No variant
+        cartKey = itemId
+      }
 
       if (quantity <= 0) {
         // Remove from cart if quantity is 0 or less
@@ -137,7 +170,12 @@ const ShopContextProvider = (props) => {
           try {
             await axios.post(
               backendUrl + '/api/cart/add',
-              { itemId, quantity: 0, variantColor },
+              { 
+                itemId, 
+                quantity: 0, 
+                variantColor,
+                selectedAttributes: selectedAttributes || (variantColor ? { color: variantColor } : null)
+              },
               { headers: { token } }
             )
           } catch (error) {
@@ -157,7 +195,7 @@ const ShopContextProvider = (props) => {
       let cartData = structuredClone(cartItems)
 
       // Remove any old entry without variant suffix if switching to variant
-      if (variantColor && cartData[itemId] && !cartData[`${itemId}__${variantColor}`]) {
+      if ((variantColor || selectedAttributes) && cartData[itemId] && !cartData[cartKey]) {
         delete cartData[itemId]
       }
 
@@ -168,7 +206,12 @@ const ShopContextProvider = (props) => {
         try {
           await axios.post(
             backendUrl + '/api/cart/add',
-            { itemId, quantity, variantColor },
+            { 
+              itemId, 
+              quantity, 
+              variantColor,
+              selectedAttributes: selectedAttributes || (variantColor ? { color: variantColor } : null)
+            },
             { headers: { token } }
           )
         } catch (error) {
@@ -201,8 +244,8 @@ const ShopContextProvider = (props) => {
     }
 
     const updateQuantity = async (cartKey, quantity) => {
-        // Parse productId and variantColor from cartKey
-        const [itemId, variantColor] = cartKey.split('__')
+        // Parse productId and variant info from cartKey
+        const [itemId, variantPart] = cartKey.split('__')
 
         let cartData = structuredClone(cartItems);
 
@@ -216,8 +259,36 @@ const ShopContextProvider = (props) => {
 
         if (token) {
             try {
+                // Support both old and new variant format
+                let variantColor = null
+                let selectedAttributes = null
+                
+                if (variantPart) {
+                  // Check if it's new format (contains ':')
+                  if (variantPart.includes(':')) {
+                    // New format: color:Red::length:10m
+                    selectedAttributes = {}
+                    const pairs = variantPart.split('::')
+                    pairs.forEach(pair => {
+                      const [type, value] = pair.split(':')
+                      selectedAttributes[type] = value
+                    })
+                  } else {
+                    // Old format: just color value
+                    variantColor = variantPart
+                  }
+                }
 
-                await axios.post(backendUrl + '/api/cart/update', { itemId, quantity, variantColor: variantColor || null }, { headers: { token } })
+                await axios.post(
+                  backendUrl + '/api/cart/update', 
+                  { 
+                    itemId, 
+                    quantity, 
+                    variantColor: variantColor || null,
+                    selectedAttributes: selectedAttributes || null
+                  }, 
+                  { headers: { token } }
+                )
 
             } catch (error) {
                 console.error('Error updating cart:', error)
@@ -230,18 +301,54 @@ const ShopContextProvider = (props) => {
 
     }
 
+    // Helper function to find a variant from selected attributes
+    const findVariantByAttributes = (product, attributes) => {
+      if (!product.variants || product.variants.length === 0) return null
+      
+      return product.variants.find(variant => {
+        // Check if variant matches all attributes
+        for (const [type, value] of Object.entries(attributes)) {
+          if (type === 'color') {
+            // For color, check both attributes and legacy color field
+            if (variant.attributes?.color === value || variant.color === value) continue
+            else return false
+          } else {
+            // For other types, check attributes object
+            if (variant.attributes?.[type] === value) continue
+            else return false
+          }
+        }
+        return true
+      })
+    }
+
     const getCartAmount = () => {
         let totalAmount = 0;
         for (const cartKey in cartItems) {
-            // Parse cartKey to extract productId and variantColor
-            const [productId, variantColor] = cartKey.split('__')
+            // Parse cartKey to extract productId and variant info
+            const [productId, variantPart] = cartKey.split('__')
             let itemInfo = products.find((product) => product._id === productId);
             try {
                 if (cartItems[cartKey] > 0 && itemInfo) {
                     let price
                     // Check if this is a variant product
-                    if (variantColor && itemInfo.variants?.length > 0) {
-                        const variant = itemInfo.variants.find(v => v.color === variantColor)
+                    if (variantPart && itemInfo.variants?.length > 0) {
+                        let variant = null
+                        
+                        if (variantPart.includes(':')) {
+                          // New format: color:Red::length:10m
+                          const attributes = {}
+                          const pairs = variantPart.split('::')
+                          pairs.forEach(pair => {
+                            const [type, value] = pair.split(':')
+                            attributes[type] = value
+                          })
+                          variant = findVariantByAttributes(itemInfo, attributes)
+                        } else {
+                          // Old format: just color value (backward compatibility)
+                          variant = itemInfo.variants.find(v => v.color === variantPart)
+                        }
+                        
                         price = variant?.price || itemInfo.retailPrice || itemInfo.price
                     } else {
                         // Non-variant product - use getProductPrice

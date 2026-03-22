@@ -39,6 +39,51 @@ const Orders = () => {
   const [pendingCancelId, setPendingCancelId]     = useState(null)
   const [visibleCount, setVisibleCount]   = useState(PAGE_SIZE)
   const observerRef = useRef(null)
+  
+  // Helper to parse selectedVariant string and find matching variant
+  const findVariantByString = (product, variantString) => {
+    if (!product.variants?.length || !variantString) return null
+    
+    // Check if it's new format (contains ':')
+    if (variantString.includes(':') && variantString.includes('::')) {
+      const attributes = {}
+      const pairs = variantString.split('::')
+      pairs.forEach(pair => {
+        const [type, value] = pair.split(':')
+        if (type && value) attributes[type] = value
+      })
+      return product.variants.find(v => {
+        for (const [type, value] of Object.entries(attributes)) {
+          const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+          if (variantValue !== value) return false
+        }
+        return true
+      })
+    }
+    
+    // Fallback: old format (just color)
+    return product.variants.find(v => v.color === variantString)
+  }
+  
+  // Helper to format selectedVariant for display
+  const formatVariantDisplay = (variantString) => {
+    if (!variantString) return ''
+    
+    // Check if it's new format
+    if (variantString.includes(':') && variantString.includes('::')) {
+      const values = []
+      const pairs = variantString.split('::')
+      pairs.forEach(pair => {
+        const [_, value] = pair.split(':')
+        if (value) values.push(value)
+      })
+      return values.join(' - ')
+    }
+    
+    // Old format or simple string
+    return variantString
+  }
+  
   const sentinelRef = useCallback((node) => {
     if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null }
     if (!node) return
@@ -112,7 +157,7 @@ const Orders = () => {
     const isExpanded = expandedOrders[order._id]
     const itemNames = order.items.map(i => 
       i.selectedVariant 
-        ? `${i.name} (${i.selectedVariant})` 
+        ? `${i.name} (${formatVariantDisplay(i.selectedVariant)})` 
         : i.name
     )
     const summaryText = itemNames.length <= 2
@@ -138,7 +183,7 @@ const Orders = () => {
                 const item = order.items[0]
                 let imageUrl = null
                 if (item.selectedVariant && item.variants && item.variants.length > 0) {
-                  const variant = item.variants.find(v => v.color === item.selectedVariant)
+                  const variant = findVariantByString(item, item.selectedVariant)
                   if (variant && variant.images && variant.images.length > 0) {
                     imageUrl = variant.images[0]
                   }
@@ -179,7 +224,7 @@ const Orders = () => {
                 // Get image from variant if available, otherwise from product
                 let imageUrl = null
                 if (item.selectedVariant && item.variants && item.variants.length > 0) {
-                  const variant = item.variants.find(v => v.color === item.selectedVariant)
+                  const variant = findVariantByString(item, item.selectedVariant)
                   if (variant && variant.images && variant.images.length > 0) {
                     imageUrl = variant.images[0]
                   }
@@ -198,7 +243,7 @@ const Orders = () => {
                       <p className='font-medium text-neutral-800 line-clamp-1'>{item.name}</p>
                       <p className='text-neutral-500'>
                         Qty: {item.quantity}
-                        {item.selectedVariant && ` · ${item.selectedVariant}`}
+                        {item.selectedVariant && ` · ${formatVariantDisplay(item.selectedVariant)}`}
                       </p>
                     </div>
                   </div>
@@ -273,7 +318,7 @@ const Orders = () => {
             <div className='w-14 h-14 rounded-lg overflow-hidden bg-white border border-neutral-100 flex-shrink-0'>
               {item.selectedVariant && item.variants && item.variants.length > 0 ? (
                 (() => {
-                  const variant = item.variants.find(v => v.color === item.selectedVariant)
+                  const variant = findVariantByString(item, item.selectedVariant)
                   return variant && variant.images && variant.images.length > 0 ? (
                     <img className='w-full h-full object-cover' src={variant.images[0]} alt={item.name} onError={(e) => e.target.style.display = 'none'} />
                   ) : item.image && item.image.length > 0 ? (
@@ -293,7 +338,7 @@ const Orders = () => {
                 {item.selectedVariant && (
                   <>
                     <span className='w-1 h-1 bg-neutral-300 rounded-full'></span>
-                    <span className='capitalize'>{item.selectedVariant}</span>
+                    <span className='capitalize'>{formatVariantDisplay(item.selectedVariant)}</span>
                   </>
                 )}
               </div>

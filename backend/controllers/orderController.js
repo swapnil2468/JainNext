@@ -28,6 +28,34 @@ const placeOrder = async (req,res) => {
         
         const { userId, items, amount, address} = req.body;
 
+        // Helper function to find variant by parsed attributes
+        const findVariantByAttributes = (product, variantString) => {
+            // variantString can be two formats:
+            // OLD: just color value ("Green")
+            // NEW: formatted attributes ("Green - 5m") or raw attributes ("color:Green::length:5m")
+            
+            // Try new format first (raw attributes: "color:Green::length:5m")
+            if (variantString.includes(':') && variantString.includes('::')) {
+                const attributes = {}
+                const pairs = variantString.split('::')
+                pairs.forEach(pair => {
+                    const [type, value] = pair.split(':')
+                    if (type && value) attributes[type] = value
+                })
+                
+                return product.variants.find(v => {
+                    for (const [type, value] of Object.entries(attributes)) {
+                        const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                        if (variantValue !== value) return false
+                    }
+                    return true
+                })
+            }
+            
+            // Fallback: treat as old format (just color)
+            return product.variants.find(v => v.color === variantString)
+        }
+        
         // Validate stock availability BEFORE creating order
         for (const item of items) {
             const product = await productModel.findById(item._id);
@@ -39,9 +67,9 @@ const placeOrder = async (req,res) => {
             // Check stock based on variant or non-variant
             if (product.variants && product.variants.length > 0 && item.selectedVariant) {
                 // Variant product - check variant stock
-                const variant = product.variants.find(v => v.color === item.selectedVariant);
+                const variant = findVariantByAttributes(product, item.selectedVariant);
                 if (!variant) {
-                    return res.json({success: false, message: `Color "${item.selectedVariant}" is no longer available for "${item.name}"`});
+                    return res.json({success: false, message: `Variant "${item.selectedVariant}" is no longer available for "${item.name}"`});
                 }
                 if (variant.stock < item.quantity) {
                     return res.json({success: false, message: `Insufficient stock for "${item.name}" (${item.selectedVariant}). Only ${variant.stock} available.`});
@@ -75,7 +103,26 @@ const placeOrder = async (req,res) => {
             
             if (product.variants && product.variants.length > 0 && item.selectedVariant) {
                 // Variant product - deduct from variant stock
-                const variantIndex = product.variants.findIndex(v => v.color === item.selectedVariant);
+                // Use same helper to find variant
+                const findVariantByAttributes = (product, variantString) => {
+                    if (variantString.includes(':') && variantString.includes('::')) {
+                        const attributes = {}
+                        const pairs = variantString.split('::')
+                        pairs.forEach(pair => {
+                            const [type, value] = pair.split(':')
+                            if (type && value) attributes[type] = value
+                        })
+                        return product.variants.findIndex(v => {
+                            for (const [type, value] of Object.entries(attributes)) {
+                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                                if (variantValue !== value) return false
+                            }
+                            return true
+                        })
+                    }
+                    return product.variants.findIndex(v => v.color === variantString)
+                }
+                const variantIndex = findVariantByAttributes(product, item.selectedVariant);
                 if (variantIndex >= 0) {
                     await productModel.findByIdAndUpdate(
                         item._id,
@@ -118,6 +165,32 @@ const placeOrderRazorpay = async (req,res) => {
         
         const { userId, items, amount, address} = req.body
 
+        // Helper function to find variant by parsed attributes (same as in placeOrder)
+        const findVariantByAttributes = (product, variantString) => {
+            // variantString can be two formats:
+            // OLD: just color value ("Green")
+            // NEW: formatted attributes ("Green - 5m") or raw attributes ("color:Green::length:5m")
+            
+            if (variantString.includes(':') && variantString.includes('::')) {
+                const attributes = {}
+                const pairs = variantString.split('::')
+                pairs.forEach(pair => {
+                    const [type, value] = pair.split(':')
+                    if (type && value) attributes[type] = value
+                })
+                
+                return product.variants.find(v => {
+                    for (const [type, value] of Object.entries(attributes)) {
+                        const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                        if (variantValue !== value) return false
+                    }
+                    return true
+                })
+            }
+            
+            return product.variants.find(v => v.color === variantString)
+        }
+        
         // Validate stock availability BEFORE creating order and initiating payment
         for (const item of items) {
             const product = await productModel.findById(item._id);
@@ -129,9 +202,9 @@ const placeOrderRazorpay = async (req,res) => {
             // Check stock based on variant or non-variant
             if (product.variants && product.variants.length > 0 && item.selectedVariant) {
                 // Variant product - check variant stock
-                const variant = product.variants.find(v => v.color === item.selectedVariant);
+                const variant = findVariantByAttributes(product, item.selectedVariant);
                 if (!variant) {
-                    return res.json({success: false, message: `Color "${item.selectedVariant}" is no longer available for "${item.name}"`});
+                    return res.json({success: false, message: `Variant "${item.selectedVariant}" is no longer available for "${item.name}"`});
                 }
                 if (variant.stock < item.quantity) {
                     return res.json({success: false, message: `Insufficient stock for "${item.name}" (${item.selectedVariant}). Only ${variant.stock} available.`});
@@ -204,13 +277,33 @@ const verifyRazorpay = async (req,res) => {
                     return res.json({success: false, message: `Product ${item.name} is no longer available`});
                 }
                 
+                // Helper function to find variant by parsed attributes
+                const findVariantByAttributes = (product, variantString) => {
+                    if (variantString.includes(':') && variantString.includes('::')) {
+                        const attributes = {}
+                        const pairs = variantString.split('::')
+                        pairs.forEach(pair => {
+                            const [type, value] = pair.split(':')
+                            if (type && value) attributes[type] = value
+                        })
+                        return product.variants.find(v => {
+                            for (const [type, value] of Object.entries(attributes)) {
+                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                                if (variantValue !== value) return false
+                            }
+                            return true
+                        })
+                    }
+                    return product.variants.find(v => v.color === variantString)
+                }
+                
                 // Check stock based on variant or non-variant
                 if (product.variants && product.variants.length > 0 && item.selectedVariant) {
                     // Variant product - check variant stock
-                    const variant = product.variants.find(v => v.color === item.selectedVariant);
+                    const variant = findVariantByAttributes(product, item.selectedVariant);
                     if (!variant) {
                         await orderModel.findByIdAndDelete(orderInfo.receipt);
-                        return res.json({success: false, message: `Color "${item.selectedVariant}" is no longer available for ${item.name}`});
+                        return res.json({success: false, message: `Variant "${item.selectedVariant}" is no longer available for ${item.name}`});
                     }
                     if (variant.stock < item.quantity) {
                         // Insufficient stock, cancel order
@@ -219,7 +312,22 @@ const verifyRazorpay = async (req,res) => {
                     }
                     
                     // Deduct from variant stock
-                    const variantIndex = product.variants.findIndex(v => v.color === item.selectedVariant);
+                    const variantIndex = product.variants.findIndex(v => {
+                        if (item.selectedVariant.includes(':') && item.selectedVariant.includes('::')) {
+                            const attributes = {}
+                            const pairs = item.selectedVariant.split('::')
+                            pairs.forEach(pair => {
+                                const [type, value] = pair.split(':')
+                                if (type && value) attributes[type] = value
+                            })
+                            for (const [type, value] of Object.entries(attributes)) {
+                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                                if (variantValue !== value) return false
+                            }
+                            return true
+                        }
+                        return v.color === item.selectedVariant
+                    });
                     if (variantIndex >= 0) {
                         await productModel.findByIdAndUpdate(
                             item._id,

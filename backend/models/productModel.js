@@ -19,8 +19,11 @@ const productSchema = new mongoose.Schema({
     useCases: { type: String, default: "" },
     stock: { type: Number, required: true, default: 0 },
     status: { type: String, enum: ['active', 'draft', 'archived'], default: 'active' },
+    variantTypes: { type: [String], default: [] },  // e.g., ["color"], ["color", "length"]
     variants: [{
-        color: { type: String, required: true },
+        attributes: { type: mongoose.Schema.Types.Mixed, default: {} },  // e.g., { color: "Red", length: "10m" }
+        // Legacy support - will be phased out
+        color: { type: String },
         colorCode: { type: String, default: '#000000' },
         price: { type: Number },
         compareAtPrice: { type: Number },

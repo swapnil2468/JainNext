@@ -120,26 +120,49 @@ const PlaceOrder = () => {
 
             for (const cartKey in cartItems) {
                 if (cartItems[cartKey] > 0) {
-                    // Parse cartKey to extract productId and variantColor
-                    // Format: "productId" (non-variant) or "productId__variantColor" (variant)
-                    const keyParts = cartKey.split('__')
-                    const productId = keyParts[0]
-                    const variantColor = keyParts[1] || null
+                    // Parse cartKey to extract productId and variant attributes
+                    // Format: productId (non-variant) or productId__color:value::length:value (variant)
+                    const [productId, attrString] = cartKey.split('__')
+                    
+                    // Parse variant attributes from attrString
+                    const variantAttributes = {};
+                    if (attrString) {
+                      const attrPairs = attrString.split('::');
+                      attrPairs.forEach(pair => {
+                        const [key, value] = pair.split(':');
+                        if (key && value) {
+                          variantAttributes[key] = value;
+                        }
+                      });
+                    }
                     
                     const product = products.find(p => p._id === productId)
                     if (product) {
                         const itemInfo = structuredClone(product)
                         itemInfo.quantity = cartItems[cartKey]
                         
-                        // Ensure price fields are set (fallback chain: variant price → product retailPrice → product price → 0)
-                        if (variantColor) {
-                            itemInfo.selectedVariant = variantColor
-                            const variant = product.variants?.find(v => v.color === variantColor)
-                            if (variant && variant.price) {
-                                itemInfo.price = variant.price
-                                itemInfo.retailPrice = variant.price
+                        // Find matching variant if variant attributes exist
+                        let matchingVariant = null
+                        if (Object.keys(variantAttributes).length > 0 && product.variants?.length > 0) {
+                            matchingVariant = product.variants.find(v => {
+                                for (const [type, value] of Object.entries(variantAttributes)) {
+                                    const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type];
+                                    if (variantValue !== value) return false;
+                                }
+                                return true;
+                            })
+                        }
+                        
+                        // Ensure price fields are set
+                        if (matchingVariant) {
+                            // Store raw attribute string (e.g., "color:Green::length:5m") for backend validation
+                            // Backend will parse this to find the variant
+                            itemInfo.selectedVariant = attrString
+                            
+                            if (matchingVariant.price) {
+                                itemInfo.price = matchingVariant.price
+                                itemInfo.retailPrice = matchingVariant.price
                             } else if (!itemInfo.retailPrice && !itemInfo.price) {
-                                // Fallback to product price if variant doesn't have its own
                                 itemInfo.retailPrice = product.retailPrice || product.price || 0
                                 itemInfo.price = product.retailPrice || product.price || 0
                             }

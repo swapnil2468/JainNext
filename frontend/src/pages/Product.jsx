@@ -21,7 +21,7 @@ const Product = () => {
   const [reviewStats, setReviewStats] = useState({ avgRating: 0, totalReviews: 0 });
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
   const [isZooming, setIsZooming] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [selectedAttributes, setSelectedAttributes] = useState({});
   const zoomFrameRef = useRef(null);
 
   const handleImageMouseMove = (e) => {
@@ -58,11 +58,27 @@ const Product = () => {
       setProductData(product);
       setImage(product.image[0]);
       
-      if (product.variants && product.variants.length > 0) {
-        setSelectedVariant(product.variants[0])
-        setImage(product.variants[0].images[0] || product.image[0])
+      if (product.variants && product.variants.length > 0 && product.variantTypes && product.variantTypes.length > 0) {
+        // Initialize selected attributes with FIRST VARIANT DATA (complete set)
+        const firstVariant = product.variants[0]
+        const initialAttributes = {}
+        
+        // Set ALL attributes from the first variant to ensure we have a complete match
+        product.variantTypes.forEach(type => {
+          if (type === 'color') {
+            initialAttributes.color = firstVariant.color || firstVariant.attributes?.color
+          } else if (firstVariant.attributes?.[type]) {
+            initialAttributes[type] = firstVariant.attributes[type]
+          }
+        })
+        
+        setSelectedAttributes(initialAttributes)
+        
+        // Set image from first variant images, not product images
+        const variantImage = firstVariant.images?.[0]
+        setImage(variantImage || product.image[0])
       } else {
-        setSelectedVariant(null)
+        setSelectedAttributes({})
       }
       
       // Fetch real review stats
@@ -96,10 +112,14 @@ const Product = () => {
   useEffect(() => {
     if (!cartItems || !productData) return
 
-    const hasVariants = productData?.variants && productData.variants.length > 0
+    const hasVariants = productData?.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
 
-    if (hasVariants && selectedVariant) {
-      const cartKey = `${productId}__${selectedVariant.color}`
+    if (hasVariants && Object.keys(selectedAttributes).length > 0) {
+      // Generate cart key from selected attributes
+      const attrStrings = Object.entries(selectedAttributes)
+        .map(([type, value]) => `${type}:${value}`)
+        .join('::')
+      const cartKey = `${productId}__${attrStrings}`
       const cartQty = cartItems[cartKey]
       if (cartQty > 0) {
         setIsInCart(true)
@@ -118,7 +138,37 @@ const Product = () => {
         setQuantity(1)
       }
     }
-  }, [cartItems, productId, selectedVariant, productData])
+  }, [cartItems, productId, selectedAttributes, productData])
+
+  // Update main image when variant attributes change
+  useEffect(() => {
+    if (!productData || !productData.variants) return
+    
+    const hasVariants = productData.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
+    
+    if (hasVariants && Object.keys(selectedAttributes).length > 0) {
+      // Find matching variant based on selected attributes
+      const matchingVariant = productData.variants.find(variant => {
+        for (const type of productData.variantTypes) {
+          const selectedValue = selectedAttributes[type]
+          if (!selectedValue) return false
+          
+          if (type === 'color') {
+            const variantColor = variant.color || variant.attributes?.color
+            if (variantColor !== selectedValue) return false
+          } else {
+            if (variant.attributes?.[type] !== selectedValue) return false
+          }
+        }
+        return true
+      })
+      
+      // Set image to first image of the matched variant
+      if (matchingVariant?.images?.length > 0) {
+        setImage(matchingVariant.images[0])
+      }
+    }
+  }, [selectedAttributes, productData])
 
   // Show loading state if products aren't loaded yet or product not found
   if (!products || products.length === 0) {
@@ -146,7 +196,31 @@ const Product = () => {
   }
 
   // Get display price (backward compatible with old 'price' field)
-  const hasVariants = productData.variants && productData.variants.length > 0
+  const hasVariants = productData.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
+  
+  // Find matching variant based on selected attributes
+  const findSelectedVariant = () => {
+    if (!hasVariants || Object.keys(selectedAttributes).length === 0) return null
+    
+    return productData.variants.find(variant => {
+      // Check ALL variant types match
+      for (const type of productData.variantTypes) {
+        const selectedValue = selectedAttributes[type]
+        if (!selectedValue) return false // Must have all attributes selected
+        
+        if (type === 'color') {
+          const variantColor = variant.color || variant.attributes?.color
+          if (variantColor !== selectedValue) return false
+        } else {
+          if (variant.attributes?.[type] !== selectedValue) return false
+        }
+      }
+      return true
+    })
+  }
+  
+  const selectedVariant = findSelectedVariant()
+  
   const displayImages = hasVariants && selectedVariant?.images?.length > 0
     ? selectedVariant.images
     : productData.image
@@ -343,49 +417,159 @@ const Product = () => {
 
           {/* Quantity + Buttons Section */}
           <div className='mb-4 space-y-4'>
-            {/* Color Variants */}
-            {hasVariants && (
+            {/* Variant Selectors - Color first, then filtered by color */}
+            {hasVariants && productData.variantTypes && (
               <div className='mb-6 pb-6 border-b border-neutral-100'>
-                <p className='text-sm font-semibold text-neutral-900 uppercase tracking-wide mb-3'>
-                  Color:
-                  <span className='font-normal normal-case text-rose-600 ml-2'>
-                    {selectedVariant?.color}
-                  </span>
-                </p>
-                <div className='flex flex-wrap gap-2'>
-                  {productData.variants.map((variant, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setSelectedVariant(variant);
-                        const newImageUrl = variant.images?.[0] || productData.image[0];
-                        // Preload image for faster display
-                        const img = new Image();
-                        img.onload = () => {
-                          setImage(newImageUrl);
-                        };
-                        img.onerror = () => {
-                          setImage(newImageUrl);
-                        };
-                        img.src = newImageUrl;
-                      }}
-                      disabled={variant.stock === 0}
-                      title={variant.color}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
-                        selectedVariant?.color === variant.color
-                          ? 'border-rose-600 bg-rose-50 text-rose-700'
-                          : 'border-neutral-200 text-neutral-600 hover:border-rose-300'
-                      } ${variant.stock === 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                      <span
-                        className='w-5 h-5 rounded-full border border-neutral-200 shadow-sm flex-shrink-0'
-                        style={{ backgroundColor: variant.colorCode }}
-                      ></span>
-                      {variant.color}
-                      {variant.stock === 0 && <span className='text-xs'>(Out of Stock)</span>}
-                    </button>
-                  ))}
-                </div>
+                {/* Helper function to get available options for a type based on selected color */}
+                {(() => {
+                  const getAvailableOptionsForType = (type) => {
+                    if (type === 'color') {
+                      // Show all colors - check both legacy and new format
+                      return Array.from(new Set(
+                        productData.variants
+                          .map(v => v.color || v.attributes?.color)
+                          .filter(Boolean)
+                      ))
+                    } else if (selectedAttributes.color) {
+                      // Filter by selected color - check both legacy and new format
+                      return Array.from(new Set(
+                        productData.variants
+                          .filter(v => (v.color === selectedAttributes.color || v.attributes?.color === selectedAttributes.color))
+                          .map(v => v.attributes?.[type])
+                          .filter(Boolean)
+                      ))
+                    } else {
+                      // No color selected, show all options for this type
+                      return Array.from(new Set(
+                        productData.variants
+                          .map(v => v.attributes?.[type])
+                          .filter(Boolean)
+                      ))
+                    }
+                  }
+
+                  return productData.variantTypes.map((variantType) => (
+                    <div key={variantType} className='mb-4 last:mb-0'>
+                      <p className='text-sm font-semibold text-neutral-900 uppercase tracking-wide mb-3'>
+                        {variantType.charAt(0).toUpperCase() + variantType.slice(1)}:
+                        <span className='font-normal normal-case text-rose-600 ml-2'>
+                          {selectedAttributes[variantType] || 'Select'}
+                        </span>
+                      </p>
+                      
+                      {variantType === 'color' ? (
+                        // Color selector with color swatches
+                        <div className='flex flex-wrap gap-2'>
+                          {getAvailableOptionsForType('color').map((colorValue) => {
+                            const variant = productData.variants.find(v => (v.color === colorValue || v.attributes?.color === colorValue))
+                            return (
+                              <button
+                                key={colorValue}
+                                onClick={() => {
+                                  // Find the first variant with this exact color
+                                  const colorVariant = productData.variants.find(v => 
+                                    (v.color === colorValue || v.attributes?.color === colorValue)
+                                  )
+                                  
+                                  // Build complete attributes from the found variant
+                                  const newAttributes = { color: colorValue }
+                                  
+                                  if (colorVariant) {
+                                    // Extract length, size, material, etc. from the variant
+                                    productData.variantTypes.forEach(type => {
+                                      if (type !== 'color') {
+                                        // Get the attribute value from variant.attributes
+                                        const attrValue = colorVariant.attributes?.[type]
+                                        if (attrValue !== undefined && attrValue !== null) {
+                                          newAttributes[type] = attrValue
+                                        }
+                                      }
+                                    })
+                                  }
+                                  
+                                  setSelectedAttributes(newAttributes)
+                                }}
+                                disabled={variant?.stock === 0}
+                                title={colorValue}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
+                                  selectedAttributes.color === colorValue
+                                    ? 'border-rose-600 bg-rose-50 text-rose-700'
+                                    : 'border-neutral-200 text-neutral-600 hover:border-rose-300'
+                                } ${variant?.stock === 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                              >
+                                {variant?.colorCode && (
+                                  <span
+                                    className='w-5 h-5 rounded-full border border-neutral-200 shadow-sm flex-shrink-0'
+                                    style={{ backgroundColor: variant.colorCode }}
+                                  ></span>
+                                )}
+                                {colorValue}
+                                {variant?.stock === 0 && <span className='text-xs'>(Out of Stock)</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        // Other variant types: button selector (same style as color)
+                        <div className='flex flex-wrap gap-2'>
+                          {getAvailableOptionsForType(variantType).map((value) => {
+                            // Find if this combination is available in stock
+                            const testAttributes = {...selectedAttributes, [variantType]: value}
+                            const matchingVariant = productData.variants.find(v => {
+                              for (const [type, val] of Object.entries(testAttributes)) {
+                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                                if (variantValue !== val) return false
+                              }
+                              return true
+                            })
+                            
+                            return (
+                              <button
+                                key={value}
+                                onClick={() => {
+                                  // When clicking a variant button, find first variant matching this attribute
+                                  // Then extract ALL attributes to ensure valid combination
+                                  const firstVariantWithValue = productData.variants.find(v => {
+                                    const variantAttrValue = variantType === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[variantType]
+                                    return variantAttrValue === value
+                                  })
+                                  
+                                  const newAttributes = {...selectedAttributes, [variantType]: value}
+                                  
+                                  // Extract all attributes from matching variant to ensure valid combination
+                                  if (firstVariantWithValue) {
+                                    productData.variantTypes.forEach(type => {
+                                      let variantValue
+                                      if (type === 'color') {
+                                        variantValue = firstVariantWithValue.color || firstVariantWithValue.attributes?.color
+                                      } else {
+                                        variantValue = firstVariantWithValue.attributes?.[type]
+                                      }
+                                      if (variantValue) {
+                                        newAttributes[type] = variantValue
+                                      }
+                                    })
+                                  }
+                                  
+                                  setSelectedAttributes(newAttributes)
+                                }}
+                                disabled={matchingVariant?.stock === 0}
+                                className={`px-4 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
+                                  selectedAttributes[variantType] === value
+                                    ? 'border-rose-600 bg-rose-50 text-rose-700'
+                                    : 'border-neutral-200 text-neutral-600 hover:border-rose-300'
+                                } ${matchingVariant?.stock === 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                              >
+                                {value}
+                                {matchingVariant?.stock === 0 && <span className='text-xs ml-1'>(Out of Stock)</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                })()}
               </div>
             )}
 
@@ -399,10 +583,16 @@ const Product = () => {
                       const newQuantity = quantity - 1;
                       setQuantity(newQuantity);
                       if (isInCart) {
-                        const hasVariants = productData?.variants && productData.variants.length > 0
-                        const cartKey = hasVariants && selectedVariant
-                          ? `${productData._id}__${selectedVariant.color}`
-                          : productData._id
+                        const hasVars = productData?.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
+                        let cartKey
+                        if (hasVars && Object.keys(selectedAttributes).length > 0) {
+                          const attrStrings = Object.entries(selectedAttributes)
+                            .map(([type, value]) => `${type}:${value}`)
+                            .join('::')
+                          cartKey = `${productData._id}__${attrStrings}`
+                        } else {
+                          cartKey = productData._id
+                        }
                         updateQuantity(cartKey, newQuantity);
                       }
                     }
@@ -419,10 +609,16 @@ const Product = () => {
                     if (newQuantity <= 999) {
                       setQuantity(newQuantity);
                       if (isInCart) {
-                        const hasVariants = productData?.variants && productData.variants.length > 0
-                        const cartKey = hasVariants && selectedVariant
-                          ? `${productData._id}__${selectedVariant.color}`
-                          : productData._id
+                        const hasVars = productData?.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
+                        let cartKey
+                        if (hasVars && Object.keys(selectedAttributes).length > 0) {
+                          const attrStrings = Object.entries(selectedAttributes)
+                            .map(([type, value]) => `${type}:${value}`)
+                            .join('::')
+                          cartKey = `${productData._id}__${attrStrings}`
+                        } else {
+                          cartKey = productData._id
+                        }
                         updateQuantity(cartKey, newQuantity);
                       }
                     }
@@ -447,15 +643,15 @@ const Product = () => {
               <div className='flex gap-3'>
                 <button
                   onClick={() => {
-                    const hasVariants = productData?.variants && productData.variants.length > 0
-                    const cartKey = hasVariants && selectedVariant
-                      ? `${productData._id}__${selectedVariant.color}`
+                    const hasVars = productData?.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
+                    const cartKey = hasVars && Object.keys(selectedAttributes).length > 0
+                      ? `${productData._id}__${Object.entries(selectedAttributes).map(([t, v]) => `${t}:${v}`).join('::')}`
                       : productData._id
 
                     // Check if cartItems is loaded
                     if (!cartItems || Object.keys(cartItems).length === 0) {
                       // cartItems not loaded yet — safe to just add
-                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                      addToCart(productData._id, quantity, null, hasVars && Object.keys(selectedAttributes).length > 0 ? selectedAttributes : null)
                       setIsInCart(true)
                       return
                     }
@@ -463,7 +659,7 @@ const Product = () => {
                     if (cartItems[cartKey] > 0) {
                       updateQuantity(cartKey, quantity)
                     } else {
-                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                      addToCart(productData._id, quantity, null, hasVars && Object.keys(selectedAttributes).length > 0 ? selectedAttributes : null)
                     }
                     setIsInCart(true)
                   }}
@@ -474,15 +670,15 @@ const Product = () => {
                 </button>
                 <button
                   onClick={() => {
-                    const hasVariants = productData?.variants && productData.variants.length > 0
-                    const cartKey = hasVariants && selectedVariant
-                      ? `${productData._id}__${selectedVariant.color}`
+                    const hasVars = productData?.variants && productData.variants.length > 0 && productData.variantTypes?.length > 0
+                    const cartKey = hasVars && Object.keys(selectedAttributes).length > 0
+                      ? `${productData._id}__${Object.entries(selectedAttributes).map(([t, v]) => `${t}:${v}`).join('::')}`
                       : productData._id
 
                     // Check if cartItems is loaded
                     if (!cartItems || Object.keys(cartItems).length === 0) {
                       // cartItems not loaded yet — safe to just add
-                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                      addToCart(productData._id, quantity, null, hasVars && Object.keys(selectedAttributes).length > 0 ? selectedAttributes : null)
                       navigate('/cart')
                       return
                     }
@@ -490,7 +686,7 @@ const Product = () => {
                     if (cartItems[cartKey] > 0) {
                       updateQuantity(cartKey, quantity)
                     } else {
-                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                      addToCart(productData._id, quantity, null, hasVars && Object.keys(selectedAttributes).length > 0 ? selectedAttributes : null)
                     }
                     navigate('/cart')
                   }}

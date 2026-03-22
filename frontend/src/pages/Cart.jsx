@@ -20,8 +20,21 @@ const Cart = () => {
     
     for (const cartKey in cartItems) {
       if (cartItems[cartKey] > 0) {
-        // Parse cartKey to extract productId and variantColor
-        const [productId, variantColor] = cartKey.split('__');
+        // Parse cartKey to extract productId and variant attributes
+        // Format: productId__color:value::length:value (can have multiple attributes)
+        const [productId, attrString] = cartKey.split('__');
+        
+        // Parse attributes from attrString (e.g., "color:Green::length:5m")
+        const variantAttributes = {};
+        if (attrString) {
+          const attrPairs = attrString.split('::');
+          attrPairs.forEach(pair => {
+            const [key, value] = pair.split(':');
+            if (key && value) {
+              variantAttributes[key] = value;
+            }
+          });
+        }
         
         // Find product - product must exist to display in cart
         const productExists = products.find((product) => product._id === productId);
@@ -31,7 +44,7 @@ const Cart = () => {
           tempData.push({
             _id: productId,
             cartKey: cartKey,
-            variantColor: variantColor || null,
+            variantAttributes: variantAttributes || {},
             quantity: cartItems[cartKey]
           });
         }
@@ -52,17 +65,34 @@ const Cart = () => {
     for (const item of cartData) {
       const product = products.find(p => p._id === item._id);
       if (product) {
-        // Check variant stock if variant exists, otherwise check product stock
+        // Check variant stock if variant exists
         let availableStock = product.stock;
-        if (item.variantColor && product.variants?.length > 0) {
-          const variant = product.variants.find(v => v.color === item.variantColor);
-          availableStock = variant?.stock || 0;
+        let variantDisplayName = product.name;
+        
+        if (Object.keys(item.variantAttributes).length > 0 && product.variants?.length > 0) {
+          // Find matching variant based on ALL attributes
+          const matchingVariant = product.variants.find(v => {
+            for (const [type, value] of Object.entries(item.variantAttributes)) {
+              const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type];
+              if (variantValue !== value) return false;
+            }
+            return true;
+          });
+          
+          if (matchingVariant) {
+            availableStock = matchingVariant.stock || 0;
+            // Format variant display name (e.g., "Green - 5m")
+            const attrArray = Object.entries(item.variantAttributes)
+              .map(([_, value]) => value)
+              .join(' - ');
+            variantDisplayName = `${product.name} - ${attrArray}`;
+          }
         }
         
         if (item.quantity > availableStock) {
           stockValidationIssues.push({
             id: item.cartKey,
-            name: item.variantColor ? `${product.name} - ${item.variantColor}` : product.name,
+            name: variantDisplayName,
             requestedQty: item.quantity,
             availableStock: availableStock
           });
@@ -201,6 +231,33 @@ const Cart = () => {
             {
               cartData.map((item, index) => {
                 const productData = products.find((product) => product._id === item._id);
+                
+                // Helper function to find matching variant
+                const findMatchingVariant = () => {
+                  if (Object.keys(item.variantAttributes).length === 0 || !productData?.variants?.length) {
+                    return null;
+                  }
+                  return productData.variants.find(v => {
+                    for (const [type, value] of Object.entries(item.variantAttributes)) {
+                      const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type];
+                      if (variantValue !== value) return false;
+                    }
+                    return true;
+                  });
+                };
+                
+                const matchingVariant = findMatchingVariant();
+                
+                // Format variant display (e.g., "Green - 5m")
+                const formatVariantDisplay = () => {
+                  if (Object.keys(item.variantAttributes).length === 0) return null;
+                  return Object.entries(item.variantAttributes)
+                    .map(([_, value]) => value)
+                    .join(' - ');
+                };
+                
+                const variantDisplay = formatVariantDisplay();
+                
                 return productData ? (
                   <div key={index} className='grid grid-cols-[3fr_1fr_1fr_1fr_0.5fr] gap-4 px-6 py-5 border-b border-neutral-100 last:border-0 items-center'>
                     {/* Product */}
@@ -209,10 +266,8 @@ const Cart = () => {
                         <img
                           className='w-full h-full object-cover'
                           src={(() => {
-                            if (item.variantColor && productData.variants?.length > 0) {
-                              const variant = productData.variants.find(v => v.color === item.variantColor)
-                              const imageUrl = variant?.images?.[0] || productData.image?.[0];
-                              return imageUrl || 'https://via.placeholder.com/80?text=No+Image';
+                            if (matchingVariant?.images?.length > 0) {
+                              return matchingVariant.images[0];
                             }
                             const imageUrl = productData.image?.[0];
                             return imageUrl || 'https://via.placeholder.com/80?text=No+Image';
@@ -227,10 +282,12 @@ const Cart = () => {
                         <p className='font-medium text-neutral-900 text-sm sm:text-base line-clamp-2'>{productData.name}</p>
                         <p className='text-xs text-neutral-500 mt-1'>{productData.category}</p>
                         <div className='flex gap-2 items-center flex-wrap mt-1'>
-                          {item.variantColor && productData.variants?.length > 0 && (
+                          {variantDisplay && (
                             <span className='inline-flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full'>
-                              <span className='w-2.5 h-2.5 rounded-full' style={{backgroundColor: productData.variants?.find(v => v.color === item.variantColor)?.colorCode || '#ccc'}}></span>
-                              {item.variantColor}
+                              {matchingVariant?.colorCode && (
+                                <span className='w-2.5 h-2.5 rounded-full' style={{backgroundColor: matchingVariant.colorCode}}></span>
+                              )}
+                              {variantDisplay}
                             </span>
                           )}
                           {canUseWholesalePrice(productData, item.quantity) && (
@@ -241,12 +298,11 @@ const Cart = () => {
                     </div>
                     {/* Price */}
                     {(() => {
-                      if (item.variantColor && productData.variants?.length > 0) {
-                        const variant = productData.variants.find(v => v.color === item.variantColor)
-                        const variantPrice = variant?.price || productData.retailPrice || productData.price
-                        return <p className='font-bold text-neutral-900 text-base'>{currency}{variantPrice}</p>
+                      if (matchingVariant) {
+                        const variantPrice = matchingVariant.price || productData.retailPrice || productData.price;
+                        return <p className='font-bold text-neutral-900 text-base'>{currency}{variantPrice}</p>;
                       }
-                      return <p className='font-bold text-neutral-900 text-base'>{currency}{getProductPrice(productData, item.quantity)}</p>
+                      return <p className='font-bold text-neutral-900 text-base'>{currency}{getProductPrice(productData, item.quantity)}</p>;
                     })()}
                     {/* Quantity */}
                     <div className='flex items-center border-2 border-neutral-200 rounded-lg overflow-hidden hover:border-rose-400 hover:shadow-sm transition-all w-fit'>
@@ -277,15 +333,14 @@ const Cart = () => {
                     </div>
                     {/* Total */}
                     {(() => {
-                      if (item.variantColor && productData.variants?.length > 0) {
-                        const variant = productData.variants.find(v => v.color === item.variantColor)
-                        const variantPrice = variant?.price || productData.retailPrice || productData.price
-                        const totalPrice = variantPrice * item.quantity
-                        return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>
+                      if (matchingVariant) {
+                        const variantPrice = matchingVariant.price || productData.retailPrice || productData.price;
+                        const totalPrice = variantPrice * item.quantity;
+                        return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>;
                       }
-                      const unitPrice = getProductPrice(productData, 1)
-                      const totalPrice = unitPrice * item.quantity
-                      return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>
+                      const unitPrice = getProductPrice(productData, 1);
+                      const totalPrice = unitPrice * item.quantity;
+                      return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>;
                     })()}
                     {/* Remove */}
                     <button

@@ -59,6 +59,7 @@ const addProduct = async (req, res) => {
         const { name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
 
         const hasVariants = req.body.hasVariants === 'true'
+        const variantTypes = hasVariants ? (JSON.parse(req.body.variantTypes || '[]')) : []
 
         let imagesUrl = []
         let productVariants = []
@@ -76,7 +77,18 @@ const addProduct = async (req, res) => {
                   variantImages.push(result.secure_url)
                 }
               }
+              
+              // Build attributes object based on variantTypes
+              const attributes = {}
+              variantTypes.forEach(type => {
+                if (variant[type] !== undefined && variant[type] !== null && variant[type] !== '') {
+                  attributes[type] = variant[type]
+                }
+              })
+              
               return {
+                attributes,
+                // Legacy fields for backward compatibility
                 color: variant.color,
                 colorCode: variant.colorCode || '#000000',
                 price: variant.price ? Number(variant.price) : undefined,
@@ -159,6 +171,7 @@ const addProduct = async (req, res) => {
             specifications,
             useCases: useCases || "",
             stock: hasVariants ? 0 : Number(stock),
+            variantTypes,
             variants: productVariants
         }
 
@@ -285,6 +298,7 @@ const singleProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock, hasVariants } = req.body
+        const variantTypes = JSON.parse(req.body.variantTypes || '[]')
         
         let updateData = {
             name,
@@ -294,7 +308,8 @@ const updateProduct = async (req, res) => {
             bestseller: bestseller === "true" ? true : false,
             useCases: useCases || "",
             minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
-            hasVariants: hasVariants === 'true' || hasVariants === true
+            hasVariants: hasVariants === 'true' || hasVariants === true,
+            variantTypes
         }
 
         // Handle variant vs non-variant mode
@@ -320,7 +335,16 @@ const updateProduct = async (req, res) => {
                     // Use new images if uploaded, otherwise keep existing ones
                     const finalImages = newImages.length > 0 ? newImages : variantImages
                     
+                    // Build attributes object based on variantTypes
+                    const attributes = {}
+                    variantTypes.forEach(type => {
+                        if (variant[type] !== undefined && variant[type] !== null && variant[type] !== '') {
+                            attributes[type] = variant[type]
+                        }
+                    })
+                    
                     return {
+                        attributes,
                         color: variant.color,
                         colorCode: variant.colorCode || '#000000',
                         price: variant.price ? Number(variant.price) : undefined,
