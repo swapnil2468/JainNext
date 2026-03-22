@@ -72,52 +72,125 @@ const ShopContextProvider = (props) => {
     }
 
 
-    const addToCart = async (itemId, quantity = 1) => {
+    const addToCart = async (itemId, quantity = 1, variantColor = null) => {
+      const product = products.find(p => p._id === itemId)
+      if (!product) {
+        toast.error('Product not found')
+        return
+      }
 
-        const product = products.find(p => p._id === itemId);
-        if (!product) {
-            toast.error('Product not found');
-            return;
+      // Always use variant-aware cart key
+      const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+
+      const currentQty = cartItems[cartKey] || 0
+      const newQty = currentQty + quantity
+
+      if (newQty > 999) {
+        toast.error('Maximum quantity limit reached')
+        return
+      }
+
+      let cartData = structuredClone(cartItems)
+
+      // Remove any old entry without variant suffix if switching to variant
+      // This prevents duplicate entries
+      if (variantColor && cartData[itemId] && !cartData[`${itemId}__${variantColor}`]) {
+        delete cartData[itemId]
+      }
+
+      cartData[cartKey] = newQty
+      setCartItems(cartData)
+
+      if (token) {
+        try {
+          await axios.post(
+            backendUrl + '/api/cart/add',
+            { itemId, quantity, variantColor },
+            { headers: { token } }
+          )
+        } catch (error) {
+          console.error('Error adding to cart:', error)
+          toast.error(error.message)
         }
+      } else {
+        localStorage.setItem('guestCart', JSON.stringify(cartData))
+      }
+    }
 
-        const currentQty = cartItems[itemId] || 0;
-        const newQty = currentQty + quantity;
+    // Set cart quantity to exact amount (used for quick view modal) instead of adding
+    const setCartQuantity = async (itemId, quantity, variantColor = null) => {
+      const product = products.find(p => p._id === itemId)
+      if (!product) {
+        toast.error('Product not found')
+        return
+      }
+
+      const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+
+      if (quantity <= 0) {
+        // Remove from cart if quantity is 0 or less
+        let cartData = structuredClone(cartItems)
+        delete cartData[cartKey]
+        setCartItems(cartData)
         
-        // Prevent unrealistic quantities (max 999 per item)
-        if (newQty > 999) {
-            toast.error('Maximum quantity limit reached');
-            return;
-        }
-
-        let cartData = structuredClone(cartItems);
-        cartData[itemId] = newQty;
-        setCartItems(cartData);
-
         if (token) {
-            try {
-
-                await axios.post(backendUrl + '/api/cart/add', { itemId, quantity }, { headers: { token } })
-
-            } catch (error) {
-                console.error('Error adding to cart:', error)
-                toast.error(error.message)
-            }
+          try {
+            await axios.post(
+              backendUrl + '/api/cart/add',
+              { itemId, quantity: 0, variantColor },
+              { headers: { token } }
+            )
+          } catch (error) {
+            console.error('Error updating cart:', error)
+          }
         } else {
-            // Save to localStorage if not logged in
-            localStorage.setItem('guestCart', JSON.stringify(cartData));
+          localStorage.setItem('guestCart', JSON.stringify(cartData))
         }
+        return
+      }
 
+      if (quantity > 999) {
+        toast.error('Maximum quantity limit reached')
+        return
+      }
+
+      let cartData = structuredClone(cartItems)
+
+      // Remove any old entry without variant suffix if switching to variant
+      if (variantColor && cartData[itemId] && !cartData[`${itemId}__${variantColor}`]) {
+        delete cartData[itemId]
+      }
+
+      cartData[cartKey] = quantity
+      setCartItems(cartData)
+
+      if (token) {
+        try {
+          await axios.post(
+            backendUrl + '/api/cart/add',
+            { itemId, quantity, variantColor },
+            { headers: { token } }
+          )
+        } catch (error) {
+          console.error('Error updating cart:', error)
+          toast.error(error.message)
+        }
+      } else {
+        localStorage.setItem('guestCart', JSON.stringify(cartData))
+      }
     }
 
     const getCartCount = () => {
         let totalCount = 0;
-        for (const items in cartItems) {
+        for (const cartKey in cartItems) {
             try {
-                if (cartItems[items] > 0) {
+                if (cartItems[cartKey] > 0) {
+                    // Extract productId from cartKey (format: productId or productId__variantColor)
+                    const [productId] = cartKey.split('__');
                     // Only count items if the product still exists
-                    const productExists = products.find(product => product._id === items);
+                    const productExists = products.find(product => product._id === productId);
                     if (productExists) {
-                        totalCount += cartItems[items];
+                        totalCount += cartItems[cartKey];
                     }
                 }
             } catch (error) {
@@ -127,18 +200,24 @@ const ShopContextProvider = (props) => {
         return totalCount;
     }
 
-    const updateQuantity = async (itemId, quantity) => {
+    const updateQuantity = async (cartKey, quantity) => {
+        // Parse productId and variantColor from cartKey
+        const [itemId, variantColor] = cartKey.split('__')
 
         let cartData = structuredClone(cartItems);
 
-        cartData[itemId] = quantity;
+        if (quantity === 0) {
+            delete cartData[cartKey]
+        } else {
+            cartData[cartKey] = quantity;
+        }
 
         setCartItems(cartData)
 
         if (token) {
             try {
 
-                await axios.post(backendUrl + '/api/cart/update', { itemId, quantity }, { headers: { token } })
+                await axios.post(backendUrl + '/api/cart/update', { itemId, quantity, variantColor: variantColor || null }, { headers: { token } })
 
             } catch (error) {
                 console.error('Error updating cart:', error)
@@ -153,12 +232,22 @@ const ShopContextProvider = (props) => {
 
     const getCartAmount = () => {
         let totalAmount = 0;
-        for (const items in cartItems) {
-            let itemInfo = products.find((product) => product._id === items);
+        for (const cartKey in cartItems) {
+            // Parse cartKey to extract productId and variantColor
+            const [productId, variantColor] = cartKey.split('__')
+            let itemInfo = products.find((product) => product._id === productId);
             try {
-                if (cartItems[items] > 0 && itemInfo) {
-                    const price = getProductPrice(itemInfo, cartItems[items]);
-                    totalAmount += price * cartItems[items];
+                if (cartItems[cartKey] > 0 && itemInfo) {
+                    let price
+                    // Check if this is a variant product
+                    if (variantColor && itemInfo.variants?.length > 0) {
+                        const variant = itemInfo.variants.find(v => v.color === variantColor)
+                        price = variant?.price || itemInfo.retailPrice || itemInfo.price
+                    } else {
+                        // Non-variant product - use getProductPrice
+                        price = getProductPrice(itemInfo, cartItems[cartKey])
+                    }
+                    totalAmount += price * cartItems[cartKey];
                 }
             } catch (error) {
                 console.error('Error calculating cart amount:', error)
@@ -172,10 +261,12 @@ const ShopContextProvider = (props) => {
         let cartData = structuredClone(cartItems);
         let hasChanges = false;
         
-        for (const itemId in cartData) {
-            const productExists = products.find(product => product._id === itemId);
-            if (!productExists && cartData[itemId] > 0) {
-                delete cartData[itemId];
+        for (const cartKey in cartData) {
+            // Parse cartKey to extract productId (format: productId or productId__variantColor)
+            const [productId] = cartKey.split('__');
+            const productExists = products.find(product => product._id === productId);
+            if (!productExists && cartData[cartKey] > 0) {
+                delete cartData[cartKey];
                 hasChanges = true;
             }
         }
@@ -236,7 +327,16 @@ const ShopContextProvider = (props) => {
             
             const response = await axios.post(backendUrl + '/api/cart/get',{},{headers:{token}})
             if (response.data.success) {
-                setCartItems(response.data.cartData)
+                // Clean up any corrupted cart data
+                if (response.data.cartData) {
+                    const cleanCart = {}
+                    Object.entries(response.data.cartData).forEach(([key, val]) => {
+                        if (val > 0) cleanCart[key] = val
+                    })
+                    setCartItems(cleanCart)
+                } else {
+                    setCartItems(response.data.cartData)
+                }
             } else if (isAuthErrorMessage(response.data.message)) {
                 handleAuthFailure('Session expired. Please login again.')
             }
@@ -324,23 +424,26 @@ const ShopContextProvider = (props) => {
         }
     }, [token])
 
-    useEffect(() => {
-        // Clean up cart when products are loaded (remove items for deleted products)
-        if (products.length > 0 && Object.keys(cartItems).length > 0 && !hasCleanedCart.current) {
-            cleanupCart();
-            hasCleanedCart.current = true;
-        }
-    }, [products, cartItems])
+    // Disabled automatic cleanup on product load - causes race conditions on reload
+    // Cart items are persisted server-side and should not be auto-deleted based on product order
+    // useEffect(() => {
+    //     if (products.length > 0 && Object.keys(cartItems).length > 0 && !hasCleanedCart.current) {
+    //         cleanupCart();
+    //         hasCleanedCart.current = true;
+    //     }
+    // }, [products, cartItems])
 
     useEffect(() => {
         // Reset cleanup flag on every token change so new sessions get cleaned properly
         hasCleanedCart.current = false;
         if (!token && localStorage.getItem('token')) {
             setToken(localStorage.getItem('token'))
-            getUserCart(localStorage.getItem('token'))
-        } else if (token) {
+            if (products.length > 0) {
+                getUserCart(localStorage.getItem('token'))
+            }
+        } else if (token && products.length > 0) {
             getUserCart(token)
-        } else {
+        } else if (!token) {
             // Load guest cart from localStorage when not logged in
             const guestCart = localStorage.getItem('guestCart');
             if (guestCart) {
@@ -351,12 +454,12 @@ const ShopContextProvider = (props) => {
                 }
             }
         }
-    }, [token])
+    }, [token, products])
 
     const value = {
         products, currency, delivery_fee,
         search, setSearch, showSearch, setShowSearch,
-        cartItems, addToCart, setCartItems,
+        cartItems, addToCart, setCartQuantity, setCartItems,
         getCartCount, updateQuantity,
         getCartAmount, navigate, backendUrl,
         setToken, token, syncCartToDatabase, logout,

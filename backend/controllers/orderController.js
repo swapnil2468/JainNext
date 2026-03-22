@@ -36,8 +36,21 @@ const placeOrder = async (req,res) => {
                 return res.json({success: false, message: `Product "${item.name}" is no longer available`});
             }
             
-            if (product.stock < item.quantity) {
-                return res.json({success: false, message: `Insufficient stock for "${item.name}". Only ${product.stock} available.`});
+            // Check stock based on variant or non-variant
+            if (product.variants && product.variants.length > 0 && item.selectedVariant) {
+                // Variant product - check variant stock
+                const variant = product.variants.find(v => v.color === item.selectedVariant);
+                if (!variant) {
+                    return res.json({success: false, message: `Color "${item.selectedVariant}" is no longer available for "${item.name}"`});
+                }
+                if (variant.stock < item.quantity) {
+                    return res.json({success: false, message: `Insufficient stock for "${item.name}" (${item.selectedVariant}). Only ${variant.stock} available.`});
+                }
+            } else {
+                // Non-variant product - check product stock
+                if (product.stock < item.quantity) {
+                    return res.json({success: false, message: `Insufficient stock for "${item.name}". Only ${product.stock} available.`});
+                }
             }
         }
 
@@ -58,11 +71,26 @@ const placeOrder = async (req,res) => {
 
         // Order saved — now deduct stock
         for (const item of items) {
-            await productModel.findByIdAndUpdate(
-                item._id,
-                { $inc: { stock: -item.quantity } },
-                { new: true }
-            );
+            const product = await productModel.findById(item._id);
+            
+            if (product.variants && product.variants.length > 0 && item.selectedVariant) {
+                // Variant product - deduct from variant stock
+                const variantIndex = product.variants.findIndex(v => v.color === item.selectedVariant);
+                if (variantIndex >= 0) {
+                    await productModel.findByIdAndUpdate(
+                        item._id,
+                        { $inc: { [`variants.${variantIndex}.stock`]: -item.quantity } },
+                        { new: true }
+                    );
+                }
+            } else {
+                // Non-variant product - deduct from product stock
+                await productModel.findByIdAndUpdate(
+                    item._id,
+                    { $inc: { stock: -item.quantity } },
+                    { new: true }
+                );
+            }
         }
 
         await userModel.findByIdAndUpdate(userId,{cartData:{}})
@@ -98,8 +126,21 @@ const placeOrderRazorpay = async (req,res) => {
                 return res.json({success: false, message: `Product "${item.name}" is no longer available`});
             }
             
-            if (product.stock < item.quantity) {
-                return res.json({success: false, message: `Insufficient stock for "${item.name}". Only ${product.stock} available.`});
+            // Check stock based on variant or non-variant
+            if (product.variants && product.variants.length > 0 && item.selectedVariant) {
+                // Variant product - check variant stock
+                const variant = product.variants.find(v => v.color === item.selectedVariant);
+                if (!variant) {
+                    return res.json({success: false, message: `Color "${item.selectedVariant}" is no longer available for "${item.name}"`});
+                }
+                if (variant.stock < item.quantity) {
+                    return res.json({success: false, message: `Insufficient stock for "${item.name}" (${item.selectedVariant}). Only ${variant.stock} available.`});
+                }
+            } else {
+                // Non-variant product - check product stock
+                if (product.stock < item.quantity) {
+                    return res.json({success: false, message: `Insufficient stock for "${item.name}". Only ${product.stock} available.`});
+                }
             }
         }
 
@@ -163,18 +204,44 @@ const verifyRazorpay = async (req,res) => {
                     return res.json({success: false, message: `Product ${item.name} is no longer available`});
                 }
                 
-                if (product.stock < item.quantity) {
-                    // Insufficient stock, cancel order
-                    await orderModel.findByIdAndDelete(orderInfo.receipt);
-                    return res.json({success: false, message: `Insufficient stock for ${item.name}. Only ${product.stock} available.`});
+                // Check stock based on variant or non-variant
+                if (product.variants && product.variants.length > 0 && item.selectedVariant) {
+                    // Variant product - check variant stock
+                    const variant = product.variants.find(v => v.color === item.selectedVariant);
+                    if (!variant) {
+                        await orderModel.findByIdAndDelete(orderInfo.receipt);
+                        return res.json({success: false, message: `Color "${item.selectedVariant}" is no longer available for ${item.name}`});
+                    }
+                    if (variant.stock < item.quantity) {
+                        // Insufficient stock, cancel order
+                        await orderModel.findByIdAndDelete(orderInfo.receipt);
+                        return res.json({success: false, message: `Insufficient stock for ${item.name} (${item.selectedVariant}). Only ${variant.stock} available.`});
+                    }
+                    
+                    // Deduct from variant stock
+                    const variantIndex = product.variants.findIndex(v => v.color === item.selectedVariant);
+                    if (variantIndex >= 0) {
+                        await productModel.findByIdAndUpdate(
+                            item._id,
+                            { $inc: { [`variants.${variantIndex}.stock`]: -item.quantity } },
+                            { new: true }
+                        );
+                    }
+                } else {
+                    // Non-variant product
+                    if (product.stock < item.quantity) {
+                        // Insufficient stock, cancel order
+                        await orderModel.findByIdAndDelete(orderInfo.receipt);
+                        return res.json({success: false, message: `Insufficient stock for ${item.name}. Only ${product.stock} available.`});
+                    }
+                    
+                    // Deduct stock
+                    await productModel.findByIdAndUpdate(
+                        item._id,
+                        { $inc: { stock: -item.quantity } },
+                        { new: true }
+                    );
                 }
-                
-                // Deduct stock
-                await productModel.findByIdAndUpdate(
-                    item._id,
-                    { $inc: { stock: -item.quantity } },
-                    { new: true }
-                );
             }
 
             // Mark payment as successful and clear cart

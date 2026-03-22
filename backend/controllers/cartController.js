@@ -6,7 +6,7 @@ import productModel from "../models/productModel.js"
 const addToCart = async (req,res) => {
     try {
         
-        const { userId, itemId } = req.body
+        const { userId, itemId, quantity, variantColor } = req.body
 
         const product = await productModel.findById(itemId);
         if (!product) {
@@ -19,18 +19,19 @@ const addToCart = async (req,res) => {
         }
         let cartData = await userData.cartData;
 
-        const currentQty = cartData[itemId] || 0;
+        // Build cart key — include variant color if provided
+        const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+
+        const currentQty = cartData[cartKey] || 0;
+        const addQty = quantity || 1;
+        const newQty = currentQty + addQty;
         
         // Prevent unrealistic quantities (max 999 per item)
-        if (currentQty >= 999) {
+        if (newQty > 999) {
             return res.json({ success: false, message: "Maximum quantity limit reached" });
         }
 
-        if (cartData[itemId]) {
-            cartData[itemId] += 1
-        } else {
-            cartData[itemId] = 1
-        }
+        cartData[cartKey] = newQty;
 
         await userModel.findByIdAndUpdate(userId, {cartData})
 
@@ -46,7 +47,7 @@ const addToCart = async (req,res) => {
 const updateCart = async (req,res) => {
     try {
         
-        const { userId ,itemId, quantity } = req.body
+        const { userId, itemId, quantity, variantColor } = req.body
 
         // Validate quantity bounds
         if (quantity === undefined || quantity === null || quantity < 0 || quantity > 999) {
@@ -59,10 +60,13 @@ const updateCart = async (req,res) => {
         }
         let cartData = await userData.cartData;
 
+        // Build cart key — include variant color if provided
+        const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+
         if (quantity === 0) {
-            delete cartData[itemId]; // Remove entry instead of keeping a 0
+            delete cartData[cartKey]; // Remove entry instead of keeping a 0
         } else {
-            cartData[itemId] = quantity;
+            cartData[cartKey] = quantity;
         }
 
         await userModel.findByIdAndUpdate(userId, {cartData})

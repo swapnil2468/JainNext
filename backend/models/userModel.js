@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, default: null },
     cartData: { type: Object, default: {} },
     role: { type: String, enum: ['retail', 'wholesale'], default: 'retail' },
     isApproved: { type: Boolean, default: false },

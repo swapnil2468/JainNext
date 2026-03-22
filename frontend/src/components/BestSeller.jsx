@@ -58,18 +58,25 @@ const BestSeller = () => {
         {/* Product Grid using existing ProductItem */}
         <div className='grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
           {
-            displayProducts.map((item, index) => (
-              <ProductItem 
-                key={index} 
-                id={item._id} 
-                name={item.name} 
-                image={item.image} 
-                price={item.retailPrice || item.price} 
-                wholesalePrice={item.wholesalePrice} 
-                minimumWholesaleQuantity={item.minimumWholesaleQuantity} 
-                stock={item.stock} 
-              />
-            ))
+            displayProducts.map((item, index) => {
+              const firstVariant = item.variants && item.variants.length > 0 ? item.variants[0] : null
+              const displayImage = firstVariant?.images?.length > 0 ? firstVariant.images : item.image
+              const displayPrice = firstVariant?.price || item.retailPrice || item.price
+              const displayStock = firstVariant ? item.variants.reduce((total, v) => total + v.stock, 0) : item.stock
+
+              return (
+                <ProductItem
+                  key={index}
+                  id={item._id}
+                  name={item.name}
+                  image={displayImage}
+                  price={displayPrice}
+                  wholesalePrice={firstVariant?.wholesalePrice || item.wholesalePrice}
+                  minimumWholesaleQuantity={item.minimumWholesaleQuantity}
+                  stock={displayStock}
+                />
+              )
+            })
           }
         </div>
 

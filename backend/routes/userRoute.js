@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword } from '../controllers/userController.js';
+import { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword, googleLogin } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
 import adminAuth from '../middleware/adminAuth.js';
 
@@ -7,6 +7,7 @@ const userRouter = express.Router();
 
 userRouter.post('/register', registerUser)
 userRouter.post('/login', loginUser)
+userRouter.post('/google-login', googleLogin)
 userRouter.post('/admin', adminLogin)
 userRouter.post('/profile', authUser, getUserProfile)
 userRouter.post('/forgot-password', forgotPassword)

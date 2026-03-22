@@ -1,5 +1,6 @@
 import React from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import Home from './pages/Home'
 import Collection from './pages/Collection'
 import About from './pages/About'
@@ -15,18 +16,28 @@ import Wholesale from './pages/Wholesale'
 import ResetPassword from './pages/ResetPassword'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
-import SearchBar from './components/SearchBar'
 import PromoBanner from './components/PromoBanner'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Component to handle scroll to top on route change
+const ScrollToTop = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+  
+  return null;
+}
 
 const App = () => {
   return (
     <div className='w-full overflow-x-hidden'>
       {/* <PromoBanner /> */}
       <ToastContainer />
+      <ScrollToTop />
       <Navbar />
-      <SearchBar />
       <Routes>
           <Route path='/' element={<Home />} />
             <Route path='/collection' element={<Collection />} />

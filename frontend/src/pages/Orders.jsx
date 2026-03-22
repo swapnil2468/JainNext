@@ -110,23 +110,50 @@ const Orders = () => {
   // Compact card for Order History (Delivered / Cancelled)
   const CompactOrderCard = ({ order }) => {
     const isExpanded = expandedOrders[order._id]
-    const itemNames = order.items.map(i => i.name)
+    const itemNames = order.items.map(i => 
+      i.selectedVariant 
+        ? `${i.name} (${i.selectedVariant})` 
+        : i.name
+    )
     const summaryText = itemNames.length <= 2
       ? itemNames.join(', ')
       : `${itemNames.slice(0, 2).join(', ')} +${itemNames.length - 2} more`
     const totalQty = order.items.reduce((s, i) => s + i.quantity, 0)
+    
+    // Status-specific border color
+    const statusBorderColor = {
+      'Delivered': 'border-l-green-500',
+      'Cancelled': 'border-l-red-500'
+    }[order.status] || 'border-l-gray-400'
 
     return (
-      <div className='bg-white rounded-2xl border border-neutral-200/60 shadow-sm mb-3 overflow-hidden hover:shadow-md transition-all duration-300'>
+      <div className={`bg-white rounded-2xl border border-neutral-200/60 shadow-sm mb-3 overflow-hidden hover:shadow-lg transition-all duration-300 border-l-4 ${statusBorderColor}`}>
         <div
           onClick={() => toggleExpand(order._id)}
-          className='flex items-center gap-4 p-4 cursor-pointer hover:bg-neutral-50 transition-colors'
+          className='flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors'
         >
           <div className='w-14 h-14 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 flex-shrink-0'>
-            <img className='w-full h-full object-cover' src={order.items[0]?.image?.[0]} alt='' />
+            {order.items[0] && (
+              (() => {
+                const item = order.items[0]
+                let imageUrl = null
+                if (item.selectedVariant && item.variants && item.variants.length > 0) {
+                  const variant = item.variants.find(v => v.color === item.selectedVariant)
+                  if (variant && variant.images && variant.images.length > 0) {
+                    imageUrl = variant.images[0]
+                  }
+                }
+                if (!imageUrl && item.image && item.image.length > 0) {
+                  imageUrl = item.image[0]
+                }
+                return imageUrl ? (
+                  <img className='w-full h-full object-cover' src={imageUrl} alt={item.name} onError={(e) => e.target.style.display = 'none'} />
+                ) : null
+              })()
+            )}
           </div>
           <div className='flex-1 min-w-0'>
-            <p className='text-sm font-medium text-neutral-900 truncate'>{summaryText}</p>
+            <p className='text-sm font-semibold text-neutral-900 truncate'>{summaryText}</p>
             <p className='text-xs text-neutral-500 mt-0.5'>
               {new Date(order.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
               <span className='mx-1.5'>·</span>
@@ -142,10 +169,42 @@ const Orders = () => {
         </div>
 
         {isExpanded && (
-          <div className='border-t border-neutral-100 bg-neutral-50 p-4'>
+          <div className='border-t border-neutral-100 bg-gray-50 p-4'>
             <p className='text-xs text-neutral-500 mb-3'>
               Order <span className='font-mono font-semibold text-neutral-700'>#{order._id.slice(-8).toUpperCase()}</span>
             </p>
+            {/* Items */}
+            <div className='space-y-2 mb-4 pb-4 border-b border-neutral-200'>
+              {order.items.map((item, idx) => {
+                // Get image from variant if available, otherwise from product
+                let imageUrl = null
+                if (item.selectedVariant && item.variants && item.variants.length > 0) {
+                  const variant = item.variants.find(v => v.color === item.selectedVariant)
+                  if (variant && variant.images && variant.images.length > 0) {
+                    imageUrl = variant.images[0]
+                  }
+                }
+                // Fall back to product image
+                if (!imageUrl && item.image && item.image.length > 0) {
+                  imageUrl = item.image[0]
+                }
+                
+                return (
+                  <div key={idx} className='flex items-center gap-3 text-xs'>
+                    <div className='w-10 h-10 rounded-lg overflow-hidden bg-white border border-neutral-100 flex-shrink-0'>
+                      <img className='w-full h-full object-cover' src={imageUrl || ''} alt={item.name} onError={(e) => e.target.style.display = 'none'} />
+                    </div>
+                    <div className='flex-1 min-w-0'>
+                      <p className='font-medium text-neutral-800 line-clamp-1'>{item.name}</p>
+                      <p className='text-neutral-500'>
+                        Qty: {item.quantity}
+                        {item.selectedVariant && ` · ${item.selectedVariant}`}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
             {order.status !== 'Cancelled' && (
               <div className='mb-4'>
                 <OrderTracker order={order} showDetails={false} />
@@ -154,7 +213,7 @@ const Orders = () => {
             <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm pt-3 border-t border-neutral-200'>
               <div className='flex flex-wrap items-center gap-3'>
                 <span className='font-semibold text-neutral-900'>{currency}{order.amount}</span>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${order.payment ? 'bg-green-50 text-green-700' : 'bg-rose-50 text-rose-600'}`}>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${order.payment ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
                   {order.payment ? '✓ Paid' : 'Pending'}
                 </span>
                 <span className='text-xs text-neutral-400'>{order.paymentMethod}</span>
@@ -162,7 +221,7 @@ const Orders = () => {
               {order.status !== 'Cancelled' && (
                 <button
                   onClick={(e) => { e.stopPropagation(); openModal(order) }}
-                  className='px-4 py-2 text-sm font-medium rounded-xl border-2 border-rose-600 text-rose-600 hover:bg-rose-50 transition-all w-fit'
+                  className='px-4 py-2 text-sm font-medium rounded-xl border-2 border-gray-900 text-gray-900 hover:bg-gray-50 transition-all w-fit'
                 >
                   <i className='ri-map-pin-line mr-1'></i>
                   Track Order
@@ -176,19 +235,28 @@ const Orders = () => {
   }
 
   // Full card for Active Orders (New / Shipped / Out for Delivery)
-  const OrderCard = ({ order }) => (
-    <div className='bg-white rounded-2xl border border-neutral-200/60 shadow-sm mb-4 overflow-hidden hover:shadow-md transition-all duration-300'>
+  const OrderCard = ({ order }) => {
+    // Status-specific accent colors
+    const statusColors = {
+      'New': { border: 'border-l-gray-900', bg: 'bg-gray-50', icon: 'ri-box-3-line', iconBg: 'bg-gray-100' },
+      'Shipped': { border: 'border-l-orange-500', bg: 'bg-orange-50', icon: 'ri-truck-line', iconBg: 'bg-orange-100' },
+      'Out for Delivery': { border: 'border-l-purple-500', bg: 'bg-purple-50', icon: 'ri-map-pin-line', iconBg: 'bg-purple-100' }
+    }
+    const colors = statusColors[order.status] || { border: 'border-l-gray-400', bg: 'bg-gray-50', icon: 'ri-package-line', iconBg: 'bg-gray-100' }
+    
+    return (
+    <div className={`bg-white rounded-2xl border border-neutral-200/60 shadow-sm mb-4 overflow-hidden hover:shadow-lg transition-all duration-300 border-l-4 ${colors.border}`}>
       {/* Header */}
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-6 border-b border-neutral-100'>
+      <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-6 border-b border-neutral-100 ${colors.bg}`}>
         <div className='flex items-center gap-3'>
-          <div className='w-10 h-10 bg-rose-50 rounded-full flex items-center justify-center flex-shrink-0'>
-            <i className='ri-shopping-bag-line text-rose-600'></i>
+          <div className={`w-10 h-10 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+            <i className={`${colors.icon} text-neutral-700`}></i>
           </div>
           <div>
-            <p className='text-sm font-medium text-neutral-900'>
-              Order <span className='font-mono text-rose-600'>#{order._id.slice(-8).toUpperCase()}</span>
+            <p className='text-sm font-semibold text-neutral-900'>
+              Order <span className='font-mono text-gray-900'>#{order._id.slice(-8).toUpperCase()}</span>
             </p>
-            <p className='text-xs text-neutral-500 mt-0.5'>
+            <p className='text-xs text-neutral-600 mt-0.5'>
               {new Date(order.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
             </p>
           </div>
@@ -199,22 +267,33 @@ const Orders = () => {
       </div>
 
       {/* Items */}
-      <div className='p-6 space-y-3'>
+      <div className='p-6 space-y-2'>
         {order.items.map((item, idx) => (
-          <div key={idx} className='flex items-center gap-4 bg-neutral-50 rounded-xl p-3'>
-            <div className='w-16 h-16 rounded-xl overflow-hidden bg-white border border-neutral-100 flex-shrink-0'>
-              <img className='w-full h-full object-cover' src={item.image[0]} alt='' />
+          <div key={idx} className='flex items-center gap-3 text-sm'>
+            <div className='w-14 h-14 rounded-lg overflow-hidden bg-white border border-neutral-100 flex-shrink-0'>
+              {item.selectedVariant && item.variants && item.variants.length > 0 ? (
+                (() => {
+                  const variant = item.variants.find(v => v.color === item.selectedVariant)
+                  return variant && variant.images && variant.images.length > 0 ? (
+                    <img className='w-full h-full object-cover' src={variant.images[0]} alt={item.name} onError={(e) => e.target.style.display = 'none'} />
+                  ) : item.image && item.image.length > 0 ? (
+                    <img className='w-full h-full object-cover' src={item.image[0]} alt={item.name} onError={(e) => e.target.style.display = 'none'} />
+                  ) : null
+                })()
+              ) : item.image && item.image.length > 0 ? (
+                <img className='w-full h-full object-cover' src={item.image[0]} alt={item.name} onError={(e) => e.target.style.display = 'none'} />
+              ) : null}
             </div>
             <div className='flex-1 min-w-0'>
-              <p className='font-medium text-neutral-900 text-sm line-clamp-1'>{item.name}</p>
-              <div className='flex flex-wrap items-center gap-3 mt-1 text-xs text-neutral-500'>
+              <p className='font-medium text-neutral-900 line-clamp-1'>{item.name}</p>
+              <div className='flex items-center gap-2 text-xs text-neutral-500 mt-0.5'>
                 <span>{currency}{item.retailPrice ?? item.price}</span>
                 <span className='w-1 h-1 bg-neutral-300 rounded-full'></span>
                 <span>Qty: {item.quantity}</span>
-                {item.size && (
+                {item.selectedVariant && (
                   <>
                     <span className='w-1 h-1 bg-neutral-300 rounded-full'></span>
-                    <span>Size: {item.size}</span>
+                    <span className='capitalize'>{item.selectedVariant}</span>
                   </>
                 )}
               </div>
@@ -234,7 +313,7 @@ const Orders = () => {
       <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 bg-neutral-50 border-t border-neutral-100'>
         <div className='flex flex-wrap items-center gap-4 text-sm'>
           <span className='font-semibold text-neutral-900'>{currency}{order.amount}</span>
-          <span className={`text-xs font-medium px-2 py-1 rounded-full ${order.payment ? 'bg-green-50 text-green-700' : 'bg-rose-50 text-rose-600'}`}>
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${order.payment ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
             {order.payment ? '✓ Paid' : 'Payment Pending'}
           </span>
           <span className='text-xs text-neutral-400'>{order.paymentMethod}</span>
@@ -243,7 +322,7 @@ const Orders = () => {
           {order.status !== 'Cancelled' && (
             <button
               onClick={() => openModal(order)}
-              className='px-4 py-2 text-sm font-medium rounded-xl border-2 border-rose-600 text-rose-600 hover:bg-rose-50 transition-all'
+              className='px-4 py-2 text-sm font-medium rounded-xl border-2 border-gray-900 text-gray-900 hover:bg-gray-50 transition-all'
             >
               <i className='ri-map-pin-line mr-1'></i>
               Track Order
@@ -260,30 +339,31 @@ const Orders = () => {
         </div>
       </div>
     </div>
-  )
+    )
+  }
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8'>
       <div className='mb-8'>
         <h1 className='text-4xl font-light text-neutral-900'>
-          My <span className='font-medium text-rose-600'>Orders</span>
+          My <span className='font-medium text-gray-900'>Orders</span>
         </h1>
-        <div className='w-16 h-0.5 bg-rose-600 mt-2'></div>
+        <div className='w-16 h-0.5 bg-gray-900 mt-2'></div>
       </div>
 
       {/* Tabs */}
-      <div className='flex gap-2 mb-8 bg-rose-50 rounded-full p-1 w-fit'>
+      <div className='flex gap-2 mb-8 bg-gray-100 rounded-full p-1 w-fit'>
         <button
           onClick={() => setActiveTab('orders')}
           className={`px-6 py-2.5 text-sm font-medium rounded-full transition-all duration-300 flex items-center gap-2 ${
             activeTab === 'orders'
-              ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-sm'
+              ? 'bg-gradient-to-r from-gray-900 to-gray-800 text-white shadow-sm'
               : 'text-neutral-600 hover:text-neutral-900'
           }`}
         >
           Active Orders
           {activeOrders.length > 0 && (
-            <span className={`text-xs rounded-full px-2 py-0.5 ${activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-rose-600 text-white'}`}>
+            <span className={`text-xs rounded-full px-2 py-0.5 ${activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-gray-900 text-white'}`}>
               {activeOrders.length}
             </span>
           )}
@@ -292,7 +372,7 @@ const Orders = () => {
           onClick={() => setActiveTab('history')}
           className={`px-6 py-2.5 text-sm font-medium rounded-full transition-all duration-300 flex items-center gap-2 ${
             activeTab === 'history'
-              ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-sm'
+              ? 'bg-gradient-to-r from-gray-900 to-gray-800 text-white shadow-sm'
               : 'text-neutral-600 hover:text-neutral-900'
           }`}
         >
@@ -308,8 +388,8 @@ const Orders = () => {
       {/* Orders list */}
       {displayed.length === 0 ? (
         <div className='flex flex-col items-center justify-center py-32'>
-          <div className='w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mb-6'>
-            <i className='ri-shopping-bag-line text-4xl text-rose-400'></i>
+          <div className='w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6'>
+            <i className='ri-shopping-bag-line text-4xl text-gray-400'></i>
           </div>
           <h2 className='text-2xl font-light text-neutral-900 mb-2'>
             {activeTab === 'orders' ? 'No Active Orders' : 'No Order History'}
@@ -319,7 +399,7 @@ const Orders = () => {
           </p>
           <button
             onClick={() => navigate('/collection')}
-            className='bg-gradient-to-r from-rose-600 to-rose-700 text-white px-8 py-4 rounded-full font-medium hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-lg hover:-translate-y-0.5'
+            className='bg-gradient-to-r from-gray-900 to-gray-800 text-white px-8 py-4 rounded-full font-medium hover:from-gray-800 hover:to-gray-700 transition-all hover:shadow-lg hover:-translate-y-0.5'
           >
             Start Shopping
           </button>
@@ -334,7 +414,7 @@ const Orders = () => {
           <div ref={sentinelRef} className='h-2' />
           {visibleCount < displayed.length && (
             <div className='flex justify-center items-center py-6 gap-3 text-neutral-400 text-sm'>
-              <div className='w-5 h-5 border-2 border-neutral-200 border-t-rose-500 rounded-full animate-spin'></div>
+              <div className='w-5 h-5 border-2 border-neutral-200 border-t-gray-900 rounded-full animate-spin'></div>
               <span>Loading more orders…</span>
             </div>
           )}
@@ -350,7 +430,7 @@ const Orders = () => {
           <div className='bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl'>
             <div className='sticky top-0 bg-white border-b border-neutral-100 p-6 flex justify-between items-center rounded-t-2xl'>
               <div>
-                <h2 className='text-xl font-light text-neutral-900'>Track <span className='font-medium text-rose-600'>Order</span></h2>
+                <h2 className='text-xl font-light text-neutral-900'>Track <span className='font-medium text-gray-900'>Order</span></h2>
                 <p className='text-sm text-neutral-500 mt-1'>#{selectedOrder._id.slice(-8).toUpperCase()}</p>
               </div>
               <button onClick={closeModal} className='w-9 h-9 flex items-center justify-center rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors'>
@@ -370,7 +450,7 @@ const Orders = () => {
                   ))}
                   <div className='flex justify-between font-semibold pt-3 border-t border-neutral-200 mt-2'>
                     <span>Total</span>
-                    <span className='text-rose-600'>{currency}{selectedOrder.amount}</span>
+                    <span className='text-gray-900'>{currency}{selectedOrder.amount}</span>
                   </div>
                 </div>
               </div>
@@ -381,7 +461,7 @@ const Orders = () => {
                   <p>{selectedOrder.address.street}</p>
                   <p>{selectedOrder.address.city}, {selectedOrder.address.state} {selectedOrder.address.zipcode}</p>
                   <p>{selectedOrder.address.country}</p>
-                  <p className='mt-2 flex items-center gap-2'><i className='ri-phone-line text-rose-600'></i>{selectedOrder.address.phone}</p>
+                  <p className='mt-2 flex items-center gap-2'><i className='ri-phone-line text-gray-900'></i>{selectedOrder.address.phone}</p>
                 </div>
               </div>
             </div>

@@ -189,7 +189,7 @@ const Wholesale = () => {
                           onChange={handleInputChange}
                           required
                           placeholder='Your business name'
-                          className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                          className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all'
                         />
                       </div>
                       <div>
@@ -201,7 +201,7 @@ const Wholesale = () => {
                           onChange={handleInputChange}
                           required
                           placeholder='22AAAAA0000A1Z5'
-                          className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                          className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all'
                         />
                       </div>
                     </div>
@@ -214,7 +214,7 @@ const Wholesale = () => {
                         onChange={handleInputChange}
                         required
                         placeholder='Business phone number'
-                        className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all'
                       />
                     </div>
                     <div>
@@ -226,7 +226,7 @@ const Wholesale = () => {
                         required
                         rows='4'
                         placeholder='Complete business address'
-                        className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm resize-none'
+                        className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all resize-none'
                       />
                     </div>
                     <button

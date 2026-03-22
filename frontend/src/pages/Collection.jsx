@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext'
 import { assets } from '../assets/assets';
@@ -8,7 +8,8 @@ import ProductItem from '../components/ProductItem';
 const Collection = () => {
 
   const [searchParams] = useSearchParams()
-  const { products, search, showSearch, selectedCategory, setSelectedCategory, selectedSubCategory, setSelectedSubCategory } = useContext(ShopContext);
+  const { products, search, setSearch, showSearch, setShowSearch, selectedCategory, setSelectedCategory, selectedSubCategory, setSelectedSubCategory } = useContext(ShopContext);
+  const searchInputRef = useRef(null)
   const [showFilter,setShowFilter] = useState(false);
   const [filterProducts,setFilterProducts] = useState([]);
   const [category,setCategory] = useState([]);
@@ -27,11 +28,10 @@ const Collection = () => {
     if (products.length > 0) {
       const prices = products.map(p => p.retailPrice || p.price).filter(p => p > 0);
       if (prices.length > 0) {
-        const min = Math.min(...prices);
         const max = Math.max(...prices);
-        // Round down to nearest 100 for min, round up for max
-        const roundedMin = Math.floor(min / 100) * 100;
-        const roundedMax = Math.ceil(max / 100) * 100;
+        // Always start from 0, round max up to nearest 50
+        const roundedMin = 0;
+        const roundedMax = Math.ceil(max / 50) * 50;
         setMinPrice(roundedMin);
         setMaxPrice(roundedMax);
         setPriceRange([roundedMin, roundedMax]);
@@ -57,6 +57,15 @@ const Collection = () => {
       setSubCategory(selectedSubCategory);
     }
   }, [selectedCategory, selectedSubCategory, searchParams]);
+
+  // Auto-focus search input when showSearch is true
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus()
+      }, 0)
+    }
+  }, [showSearch])
 
   // Category to Subcategory Mapping
   const categoryOptions = {
@@ -129,7 +138,8 @@ const Collection = () => {
 
     // Filter by price range
     productsCopy = productsCopy.filter(item => {
-      const price = item.retailPrice || item.price; // Backward compatibility
+      const firstVariant = item.variants && item.variants.length > 0 ? item.variants[0] : null
+      const price = firstVariant?.price || item.retailPrice || item.price
       return price >= priceRange[0] && price <= priceRange[1];
     })
 
@@ -202,14 +212,46 @@ const Collection = () => {
   return (
     <div className='min-h-screen bg-white'>
       {/* Header Section */}
-      <div className='pt-32 pb-12 bg-white px-6 lg:px-8'>
-        <div className='max-w-3xl'>
-          <h1 className='text-4xl md:text-5xl font-light text-neutral-900 mb-4'>
-            All <span className='text-rose-600'>Collections</span>
-          </h1>
-          <p className='text-lg text-neutral-600'>
-            Discover our complete range of premium lighting solutions
-          </p>
+      <div className='pt-32 pb-12 bg-gradient-to-b from-rose-50/30 to-white px-6 lg:px-8'>
+        <div className='flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6'>
+          <div className='flex-1'>
+            <h1 className='text-4xl md:text-5xl font-light text-neutral-900 mb-4'>
+              All <span className='text-rose-600'>Collections</span>
+            </h1>
+            <p className='text-lg text-neutral-600'>
+              Discover our complete range of premium lighting solutions
+            </p>
+          </div>
+          
+          {/* Search Bar */}
+          <div className='w-full lg:w-[550px]'>
+            <div className='flex items-center border-2 border-neutral-300 rounded-xl px-5 py-3 bg-white hover:border-rose-300 transition-all duration-300 focus-within:border-rose-500 focus-within:ring-2 focus-within:ring-rose-100 shadow-sm'>
+              <i className='ri-search-line text-neutral-400 text-lg mr-3'></i>
+              <input 
+                ref={searchInputRef}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  if (e.target.value.length > 0) {
+                    setShowSearch(true);
+                  }
+                }}
+                type="text" 
+                placeholder='Search products here...'
+                className='flex-1 outline-none bg-transparent text-sm text-neutral-900 placeholder-neutral-500'
+              />
+              {search && (
+                <button
+                  onClick={() => {
+                    setSearch('');
+                  }}
+                  className='text-neutral-400 hover:text-neutral-600 transition-colors'
+                >
+                  <i className='ri-close-line text-lg'></i>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -395,7 +437,7 @@ const Collection = () => {
                       setMinInput(String(clamped));
                     }
                   }}
-                  className='w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all'
+                  className='w-full px-3 py-2 bg-neutral-50 border-2 border-neutral-200 rounded-lg text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all'
                   placeholder={`₹${minPrice}`}
                 />
               </div>
@@ -424,7 +466,7 @@ const Collection = () => {
                       setMaxInput(String(clamped));
                     }
                   }}
-                  className='w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all'
+                  className='w-full px-3 py-2 bg-neutral-50 border-2 border-neutral-200 rounded-lg text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all'
                   placeholder={`₹${maxPrice}`}
                 />
               </div>
@@ -528,18 +570,26 @@ const Collection = () => {
         {/* Map Products */}
         <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-8'>
           {
-            visibleProducts.map((item,index)=>(
-              <ProductItem 
-                key={index} 
-                name={item.name} 
-                id={item._id} 
-                price={item.retailPrice || item.price} 
-                wholesalePrice={item.wholesalePrice} 
-                minimumWholesaleQuantity={item.minimumWholesaleQuantity} 
-                image={item.image} 
-                stock={item.stock} 
-              />
-            ))
+            visibleProducts.map((item,index)=>{
+              // For variant products use first variant's data
+              const firstVariant = item.variants && item.variants.length > 0 ? item.variants[0] : null
+              const displayImage = firstVariant?.images?.length > 0 ? firstVariant.images : item.image
+              const displayPrice = firstVariant?.price || item.retailPrice || item.price
+              const displayStock = firstVariant ? item.variants.reduce((total, v) => total + v.stock, 0) : item.stock
+
+              return (
+                <ProductItem
+                  key={index}
+                  name={item.name}
+                  id={item._id}
+                  price={displayPrice}
+                  wholesalePrice={firstVariant?.wholesalePrice || item.wholesalePrice}
+                  minimumWholesaleQuantity={item.minimumWholesaleQuantity}
+                  image={displayImage}
+                  stock={displayStock}
+                />
+              )
+            })
           }
         </div>
         

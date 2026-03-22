@@ -21,6 +21,7 @@ const Product = () => {
   const [reviewStats, setReviewStats] = useState({ avgRating: 0, totalReviews: 0 });
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
   const [isZooming, setIsZooming] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const zoomFrameRef = useRef(null);
 
   const handleImageMouseMove = (e) => {
@@ -56,6 +57,14 @@ const Product = () => {
     if (product) {
       setProductData(product);
       setImage(product.image[0]);
+      
+      if (product.variants && product.variants.length > 0) {
+        setSelectedVariant(product.variants[0])
+        setImage(product.variants[0].images[0] || product.image[0])
+      } else {
+        setSelectedVariant(null)
+      }
+      
       // Fetch real review stats
       try {
         const res = await axios.post(backendUrl + '/api/review/stats', { productId })
@@ -85,14 +94,31 @@ const Product = () => {
   }, [productId,products])
 
   useEffect(() => {
-    if (cartItems && cartItems[productId]) {
-      setIsInCart(true);
-      setQuantity(cartItems[productId]);
-    } else {
-      setIsInCart(false);
-      setQuantity(1);
+    if (!cartItems || !productData) return
+
+    const hasVariants = productData?.variants && productData.variants.length > 0
+
+    if (hasVariants && selectedVariant) {
+      const cartKey = `${productId}__${selectedVariant.color}`
+      const cartQty = cartItems[cartKey]
+      if (cartQty > 0) {
+        setIsInCart(true)
+        setQuantity(cartQty)
+      } else {
+        setIsInCart(false)
+        setQuantity(1)
+      }
+    } else if (!hasVariants) {
+      const cartQty = cartItems[productId]
+      if (cartQty > 0) {
+        setIsInCart(true)
+        setQuantity(cartQty)
+      } else {
+        setIsInCart(false)
+        setQuantity(1)
+      }
     }
-  }, [cartItems, productId])
+  }, [cartItems, productId, selectedVariant, productData])
 
   // Show loading state if products aren't loaded yet or product not found
   if (!products || products.length === 0) {
@@ -120,7 +146,22 @@ const Product = () => {
   }
 
   // Get display price (backward compatible with old 'price' field)
-  const displayRetailPrice = productData.retailPrice || productData.price;
+  const hasVariants = productData.variants && productData.variants.length > 0
+  const displayImages = hasVariants && selectedVariant?.images?.length > 0
+    ? selectedVariant.images
+    : productData.image
+  const displayPrice = hasVariants && selectedVariant?.price
+    ? selectedVariant.price
+    : (productData.retailPrice || productData.price)
+  const displayCompareAtPrice = hasVariants && selectedVariant?.compareAtPrice
+    ? selectedVariant.compareAtPrice
+    : productData.compareAtPrice
+  const displayStock = hasVariants && selectedVariant
+    ? selectedVariant.stock
+    : productData.stock
+  const displayWholesalePrice = hasVariants && selectedVariant?.wholesalePrice
+    ? selectedVariant.wholesalePrice
+    : productData.wholesalePrice
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8'>
@@ -145,7 +186,7 @@ const Product = () => {
           <div className='flex gap-3'>
             {/* Thumbnail Strip - Vertical on left side */}
             <div className='flex flex-col gap-2 overflow-y-auto'>
-              {productData.image.map((item, index) => (
+              {displayImages.map((item, index) => (
                 <img 
                   onClick={() => setImage(item)} 
                   src={item} 
@@ -231,17 +272,17 @@ const Product = () => {
 
           {/* Pricing Section */}
           <div className='mb-5'>
-            {userProfile?.role === 'wholesale' && userProfile?.isApproved && productData.wholesalePrice ? (
+            {userProfile?.role === 'wholesale' && userProfile?.isApproved && displayWholesalePrice ? (
               <div>
                 <div className='flex items-center gap-2 mb-2'>
-                  <p className='text-2xl sm:text-3xl font-semibold text-green-700'>{currency}{productData.wholesalePrice}</p>
+                  <p className='text-2xl sm:text-3xl font-semibold text-green-700'>{currency}{displayWholesalePrice}</p>
                   <span className='bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold'>Wholesale</span>
                 </div>
                 <div className='flex items-center gap-2'>
-                  {productData.compareAtPrice && (
-                    <p className='text-sm text-gray-400 line-through'>{currency}{productData.compareAtPrice}</p>
+                  {displayCompareAtPrice && (
+                    <p className='text-sm text-gray-400 line-through'>{currency}{displayCompareAtPrice}</p>
                   )}
-                  <p className='text-sm text-gray-400 line-through'>{currency}{displayRetailPrice}</p>
+                  <p className='text-sm text-gray-400 line-through'>{currency}{displayPrice}</p>
                 </div>
                 <p className='text-sm text-gray-600 mt-2'>Minimum quantity: {productData.minimumWholesaleQuantity || 10} units</p>
                 {quantity >= (productData.minimumWholesaleQuantity || 10) ? (
@@ -252,7 +293,7 @@ const Product = () => {
               </div>
             ) : userProfile?.role === 'wholesale' && !userProfile?.isApproved ? (
               <div>
-                <p className='text-2xl sm:text-3xl font-semibold'>{currency}{displayRetailPrice}</p>
+                <p className='text-2xl sm:text-3xl font-semibold'>{currency}{displayPrice}</p>
                 <div className='mt-2 p-2 bg-gray-50 border border-gray-200 rounded'>
                   <p className='text-xs text-gray-700'><strong>Your wholesale account is under review.</strong></p>
                   <p className='text-xs text-gray-600 mt-0.5'>You'll see wholesale pricing once approved.</p>
@@ -261,12 +302,12 @@ const Product = () => {
             ) : (
               <div>
                 <div className='flex items-baseline gap-3 flex-wrap'>
-                  <span className='text-3xl font-bold text-neutral-900'>{currency}{displayRetailPrice}</span>
-                  {productData.compareAtPrice && (
+                  <span className='text-3xl font-bold text-neutral-900'>{currency}{displayPrice}</span>
+                  {displayCompareAtPrice && (
                     <>
-                      <span className='text-xl text-neutral-400 line-through'>{currency}{productData.compareAtPrice}</span>
+                      <span className='text-xl text-neutral-400 line-through'>{currency}{displayCompareAtPrice}</span>
                       <span className='px-2 py-1 bg-green-50 text-green-700 text-sm font-semibold rounded'>
-                        {Math.round((1 - displayRetailPrice / productData.compareAtPrice) * 100)}% OFF
+                        {Math.round((1 - displayPrice / displayCompareAtPrice) * 100)}% OFF
                       </span>
                     </>
                   )}
@@ -276,11 +317,11 @@ const Product = () => {
           </div>
 
           {/* Stock Status */}
-          {productData.stock === 0 && (
+          {displayStock === 0 && (
             <p className='text-rose-600 font-semibold text-base mb-3'>Out of Stock</p>
           )}
-          {productData.stock && productData.stock < 20 && productData.stock > 0 && (
-            <p className='text-rose-600 font-semibold text-base mb-3'>⚠️ Hurry! Only {productData.stock} left in stock</p>
+          {displayStock && displayStock < 20 && displayStock > 0 && (
+            <p className='text-rose-600 font-semibold text-base mb-3'>⚠️ Hurry! Only {displayStock} left in stock</p>
           )}
 
           {/* Specifications as Bullet List with Em-Dash */}
@@ -302,6 +343,52 @@ const Product = () => {
 
           {/* Quantity + Buttons Section */}
           <div className='mb-4 space-y-4'>
+            {/* Color Variants */}
+            {hasVariants && (
+              <div className='mb-6 pb-6 border-b border-neutral-100'>
+                <p className='text-sm font-semibold text-neutral-900 uppercase tracking-wide mb-3'>
+                  Color:
+                  <span className='font-normal normal-case text-rose-600 ml-2'>
+                    {selectedVariant?.color}
+                  </span>
+                </p>
+                <div className='flex flex-wrap gap-2'>
+                  {productData.variants.map((variant, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setSelectedVariant(variant);
+                        const newImageUrl = variant.images?.[0] || productData.image[0];
+                        // Preload image for faster display
+                        const img = new Image();
+                        img.onload = () => {
+                          setImage(newImageUrl);
+                        };
+                        img.onerror = () => {
+                          setImage(newImageUrl);
+                        };
+                        img.src = newImageUrl;
+                      }}
+                      disabled={variant.stock === 0}
+                      title={variant.color}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
+                        selectedVariant?.color === variant.color
+                          ? 'border-rose-600 bg-rose-50 text-rose-700'
+                          : 'border-neutral-200 text-neutral-600 hover:border-rose-300'
+                      } ${variant.stock === 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <span
+                        className='w-5 h-5 rounded-full border border-neutral-200 shadow-sm flex-shrink-0'
+                        style={{ backgroundColor: variant.colorCode }}
+                      ></span>
+                      {variant.color}
+                      {variant.stock === 0 && <span className='text-xs'>(Out of Stock)</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Quantity Selector - always visible */}
             <div>
               <h3 className='text-sm font-semibold text-neutral-900 mb-3'>Quantity</h3>
@@ -311,7 +398,13 @@ const Product = () => {
                     if (quantity > 1) {
                       const newQuantity = quantity - 1;
                       setQuantity(newQuantity);
-                      if (isInCart) updateQuantity(productData._id, newQuantity);
+                      if (isInCart) {
+                        const hasVariants = productData?.variants && productData.variants.length > 0
+                        const cartKey = hasVariants && selectedVariant
+                          ? `${productData._id}__${selectedVariant.color}`
+                          : productData._id
+                        updateQuantity(cartKey, newQuantity);
+                      }
                     }
                   }}
                   disabled={quantity <= 1}
@@ -325,7 +418,13 @@ const Product = () => {
                     const newQuantity = quantity + 1;
                     if (newQuantity <= 999) {
                       setQuantity(newQuantity);
-                      if (isInCart) updateQuantity(productData._id, newQuantity);
+                      if (isInCart) {
+                        const hasVariants = productData?.variants && productData.variants.length > 0
+                        const cartKey = hasVariants && selectedVariant
+                          ? `${productData._id}__${selectedVariant.color}`
+                          : productData._id
+                        updateQuantity(cartKey, newQuantity);
+                      }
                     }
                   }}
                   disabled={quantity >= 999}
@@ -337,7 +436,7 @@ const Product = () => {
             </div>
 
             {/* Action Buttons */}
-            {productData.stock === 0 ? (
+            {displayStock === 0 ? (
               <button
                 disabled
                 className='w-full bg-neutral-300 text-neutral-500 px-8 py-4 rounded-xl font-semibold cursor-not-allowed text-sm'
@@ -348,7 +447,24 @@ const Product = () => {
               <div className='flex gap-3'>
                 <button
                   onClick={() => {
-                    addToCart(productData._id, quantity)
+                    const hasVariants = productData?.variants && productData.variants.length > 0
+                    const cartKey = hasVariants && selectedVariant
+                      ? `${productData._id}__${selectedVariant.color}`
+                      : productData._id
+
+                    // Check if cartItems is loaded
+                    if (!cartItems || Object.keys(cartItems).length === 0) {
+                      // cartItems not loaded yet — safe to just add
+                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                      setIsInCart(true)
+                      return
+                    }
+
+                    if (cartItems[cartKey] > 0) {
+                      updateQuantity(cartKey, quantity)
+                    } else {
+                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                    }
                     setIsInCart(true)
                   }}
                   className='flex-1 bg-white border-2 border-rose-600 text-rose-600 rounded-xl font-semibold hover:bg-rose-50 transition-all shadow-sm hover:shadow-md px-8 py-4 text-sm'
@@ -358,7 +474,24 @@ const Product = () => {
                 </button>
                 <button
                   onClick={() => {
-                    addToCart(productData._id, quantity)
+                    const hasVariants = productData?.variants && productData.variants.length > 0
+                    const cartKey = hasVariants && selectedVariant
+                      ? `${productData._id}__${selectedVariant.color}`
+                      : productData._id
+
+                    // Check if cartItems is loaded
+                    if (!cartItems || Object.keys(cartItems).length === 0) {
+                      // cartItems not loaded yet — safe to just add
+                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                      navigate('/cart')
+                      return
+                    }
+
+                    if (cartItems[cartKey] > 0) {
+                      updateQuantity(cartKey, quantity)
+                    } else {
+                      addToCart(productData._id, quantity, selectedVariant?.color || null)
+                    }
                     navigate('/cart')
                   }}
                   className='flex-1 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-xl font-semibold hover:from-rose-700 hover:to-rose-800 transition-all shadow-md hover:shadow-lg px-8 py-4 text-sm'

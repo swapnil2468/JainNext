@@ -301,7 +301,7 @@ const Profile = () => {
 
               {!showWholesaleForm ? (
                 <button
-                  onClick={() => setShowWholesaleForm(true)}
+                  onClick={() => navigate('/wholesale')}
                   className='mt-auto bg-gradient-to-r from-rose-600 to-rose-700 text-white px-6 py-3 text-sm font-medium rounded-xl hover:from-rose-700 hover:to-rose-800 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5'
                 >
                   <i className='ri-store-2-line mr-2'></i>
@@ -318,7 +318,7 @@ const Profile = () => {
                         value={wholesaleFormData.businessName}
                         onChange={handleWholesaleInputChange}
                         required
-                        className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all'
                         placeholder='Your business name'
                       />
                     </div>
@@ -330,7 +330,7 @@ const Profile = () => {
                         value={wholesaleFormData.gstNumber}
                         onChange={handleWholesaleInputChange}
                         required
-                        className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                        className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all'
                         placeholder='GST number'
                       />
                     </div>
@@ -343,7 +343,7 @@ const Profile = () => {
                       value={wholesaleFormData.businessPhone}
                       onChange={handleWholesaleInputChange}
                       required
-                      className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm'
+                      className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all'
                       placeholder='Business phone number'
                     />
                   </div>
@@ -355,7 +355,7 @@ const Profile = () => {
                       onChange={handleWholesaleInputChange}
                       required
                       rows='3'
-                      className='w-full px-4 py-3 border border-neutral-200 rounded-xl focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-sm resize-none'
+                      className='w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 placeholder-neutral-500 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all resize-none'
                       placeholder='Full business address'
                     />
                   </div>

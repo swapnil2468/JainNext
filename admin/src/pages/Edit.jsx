@@ -36,6 +36,8 @@ const Edit = ({ token }) => {
   const [activeTab, setActiveTab] = useState("description")
   const [trackInventory, setTrackInventory] = useState(true);
   const [allowBackorders, setAllowBackorders] = useState(false);
+  const [hasVariants, setHasVariants] = useState(false)
+  const [variants, setVariants] = useState([])
 
   // Warn on browser tab close/refresh when dirty
   useEffect(() => {
@@ -131,6 +133,40 @@ const Edit = ({ token }) => {
     "Specialty & Novelty Lighting": ["Sensor Lights", "Battery/Cork Lights", "Bluetooth/Music Lights", "Designer Lamps"]
   }
 
+  const addVariant = () => {
+    setVariants([...variants, {
+      color: '',
+      colorCode: '#ef4444',
+      price: '',
+      compareAtPrice: '',
+      wholesalePrice: '',
+      stock: '',
+      images: [null, null, null, null],
+      previews: [null, null, null, null]
+    }])
+  }
+
+  const removeVariant = (index) => {
+    setVariants(variants.filter((_, i) => i !== index))
+    setIsDirty(true)
+  }
+
+  const updateVariant = (index, field, value) => {
+    const updated = [...variants]
+    updated[index][field] = value
+    setVariants(updated)
+    setIsDirty(true)
+  }
+
+  const handleVariantImage = (vIndex, imgIndex, file) => {
+    if (!file) return
+    const updated = [...variants]
+    updated[vIndex].images[imgIndex] = file
+    updated[vIndex].previews[imgIndex] = URL.createObjectURL(file)
+    setVariants(updated)
+    setIsDirty(true)
+  }
+
   // Fetch product data
   useEffect(() => {
     const fetchProduct = async () => {
@@ -149,7 +185,30 @@ const Edit = ({ token }) => {
           setCategory(product.category)
           setSubCategory(product.subCategory)
           setBestseller(product.bestseller || false)
-          setExistingImages(product.image || [])
+          
+          // Load variants if they exist
+          // Check both hasVariants flag AND if variants array exists with items
+          const productHasVariants = product.hasVariants || (product.variants && product.variants.length > 0)
+          
+          if (productHasVariants) {
+            setHasVariants(true)
+            const variantsWithPreviews = product.variants.map(v => ({
+              color: v.color || '',
+              colorCode: v.colorCode || '#ef4444',
+              price: v.price || '',
+              compareAtPrice: v.compareAtPrice || '',
+              wholesalePrice: v.wholesalePrice || '',
+              stock: v.stock || 0,
+              images: [],
+              previews: v.images || []
+            }))
+            setVariants(variantsWithPreviews)
+            setExistingImages([])
+          } else {
+            setHasVariants(false)
+            setVariants([])
+            setExistingImages(product.image || [])
+          }
 
           // Load specifications
           if (product.specifications) {
@@ -176,7 +235,7 @@ const Edit = ({ token }) => {
     }
 
     fetchProduct()
-  }, [productId])
+  }, [productId, token])
 
   const handleCategoryChange = (e) => {
     const selectedCategory = e.target.value
@@ -197,22 +256,24 @@ const Edit = ({ token }) => {
   const onSubmitHandler = async (e) => {
     e.preventDefault()
     
-    // Validate retail price
-    if (!retailPrice || Number(retailPrice) <= 0) {
-      toast.error('Retail price must be greater than 0');
-      return;
-    }
-    
-    // Validate wholesale price (optional, but if provided must be less than retail)
-    if (wholesalePrice && Number(wholesalePrice) >= Number(retailPrice)) {
-      toast.error('Wholesale price must be less than retail price');
-      return;
-    }
-    
-    // Validate stock
-    if (stock === '' || Number(stock) < 0) {
-      toast.error('Stock cannot be negative');
-      return;
+    // Only validate retail price for non-variant products
+    if (!hasVariants) {
+      if (!retailPrice || Number(retailPrice) <= 0) {
+        toast.error('Retail price must be greater than 0');
+        return;
+      }
+      
+      // Validate wholesale price (optional, but if provided must be less than retail)
+      if (wholesalePrice && Number(wholesalePrice) >= Number(retailPrice)) {
+        toast.error('Wholesale price must be less than retail price');
+        return;
+      }
+      
+      // Validate stock
+      if (stock === '' || Number(stock) < 0) {
+        toast.error('Stock cannot be negative');
+        return;
+      }
     }
 
     // Show confirmation modal instead of submitting directly
@@ -223,18 +284,68 @@ const Edit = ({ token }) => {
     setShowUpdateConfirm(false)
     setSubmitting(true);
 
+    // Validate retail price (only for non-variant products)
+    if (!hasVariants && (!retailPrice || Number(retailPrice) <= 0)) {
+      toast.error('Retail price must be greater than 0');
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate wholesale price (optional, but if provided must be less than retail)
+    if (!hasVariants && wholesalePrice && Number(wholesalePrice) >= Number(retailPrice)) {
+      toast.error('Wholesale price must be less than retail price');
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate stock
+    if (!hasVariants && (stock === '' || Number(stock) < 0)) {
+      toast.error('Stock cannot be negative');
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate variants
+    if (hasVariants && variants.length === 0) {
+      toast.error('Please add at least one color variant');
+      setSubmitting(false);
+      return;
+    }
+    if (hasVariants) {
+      for (let i = 0; i < variants.length; i++) {
+        if (!variants[i].color) {
+          toast.error(`Please enter color name for Variant ${i + 1}`);
+          setSubmitting(false);
+          return;
+        }
+        if (!variants[i].stock && variants[i].stock !== 0) {
+          toast.error(`Please enter stock for Variant ${i + 1}`);
+          setSubmitting(false);
+          return;
+        }
+      }
+    }
+
     try {
       const formData = new FormData()
 
       formData.append("productId", productId)
       formData.append("name", name)
       formData.append("description", description)
-      formData.append("retailPrice", retailPrice)
-      if (compareAtPrice) formData.append("compareAtPrice", compareAtPrice)
       if (useCases) formData.append("useCases", useCases)
-      formData.append("wholesalePrice", wholesalePrice)
-      formData.append("minimumWholesaleQuantity", minimumWholesaleQuantity)
-      formData.append("stock", stock)
+      if (minimumWholesaleQuantity) formData.append("minimumWholesaleQuantity", minimumWholesaleQuantity)
+
+      // Handle pricing and stock based on variant mode
+      if (!hasVariants) {
+        formData.append("retailPrice", retailPrice)
+        formData.append("stock", stock)
+        if (compareAtPrice) formData.append("compareAtPrice", compareAtPrice)
+        if (wholesalePrice) formData.append("wholesalePrice", wholesalePrice)
+      } else {
+        formData.append("retailPrice", variants[0]?.price || 0)
+        formData.append("stock", 0)
+      }
+
       formData.append("category", category)
       formData.append("subCategory", subCategory)
       formData.append("bestseller", bestseller)
@@ -244,10 +355,42 @@ const Edit = ({ token }) => {
         formData.append(key, specifications[key])
       })
 
-      image1 && formData.append("image1", image1)
-      image2 && formData.append("image2", image2)
-      image3 && formData.append("image3", image3)
-      image4 && formData.append("image4", image4)
+      formData.append('hasVariants', hasVariants)
+
+      if (hasVariants) {
+        // Append variant data as JSON (including existing images)
+        const variantsData = variants.map(v => ({
+          color: v.color,
+          colorCode: v.colorCode,
+          price: v.price ? Number(v.price) : '',
+          compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : '',
+          wholesalePrice: v.wholesalePrice ? Number(v.wholesalePrice) : '',
+          stock: v.stock ? Number(v.stock) : 0,
+          images: v.previews || [] // Include existing image URLs
+        }))
+        formData.append('variants', JSON.stringify(variantsData))
+
+        // Append variant images (only NEW File objects)
+        variants.forEach((variant, vIndex) => {
+          variant.images.forEach((img, imgIndex) => {
+            // Only append if it's a File object (new upload)
+            if (img && img instanceof File) {
+              formData.append(`variantImage_${vIndex}_${imgIndex}`, img)
+            }
+          })
+        })
+      } else {
+        // Append base images (only NEW File objects)
+        image1 && image1 instanceof File && formData.append("image1", image1)
+        image2 && image2 instanceof File && formData.append("image2", image2)
+        image3 && image3 instanceof File && formData.append("image3", image3)
+        image4 && image4 instanceof File && formData.append("image4", image4)
+        
+        // If no new images but we have existing images, send them via formData
+        if (!image1 && !image2 && !image3 && !image4 && existingImages.length > 0) {
+          formData.append("existingImages", JSON.stringify(existingImages))
+        }
+      }
 
       const response = await axios.post(backendUrl + "/api/product/update", formData, { headers: { token } })
 
@@ -283,28 +426,172 @@ const Edit = ({ token }) => {
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
         {/* LEFT COLUMN */}
         <div className='lg:col-span-2 space-y-8'>
-          {/* Product Images Box */}
+          {/* Images / Variants Toggle */}
           <div className='bg-white rounded-2xl p-6'>
-            <h3 className='text-lg font-semibold mb-4 text-gray-900'>Product Images</h3>
-            <div className='flex gap-4 mb-4'>
-              <label htmlFor="image1" className='cursor-pointer'>
-                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image1 ? (existingImages[0] || assets.upload_area) : URL.createObjectURL(image1)} alt="Product 1" />
-                <input onChange={(e) => { setImage1(e.target.files[0]); setIsDirty(true) }} type="file" id="image1" hidden />
-              </label>
-              <label htmlFor="image2" className='cursor-pointer'>
-                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image2 ? (existingImages[1] || assets.upload_area) : URL.createObjectURL(image2)} alt="Product 2" />
-                <input onChange={(e) => { setImage2(e.target.files[0]); setIsDirty(true) }} type="file" id="image2" hidden />
-              </label>
-              <label htmlFor="image3" className='cursor-pointer'>
-                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image3 ? (existingImages[2] || assets.upload_area) : URL.createObjectURL(image3)} alt="Product 3" />
-                <input onChange={(e) => { setImage3(e.target.files[0]); setIsDirty(true) }} type="file" id="image3" hidden />
-              </label>
-              <label htmlFor="image4" className='cursor-pointer'>
-                <img className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-gray-400' src={!image4 ? (existingImages[3] || assets.upload_area) : URL.createObjectURL(image4)} alt="Product 4" />
-                <input onChange={(e) => { setImage4(e.target.files[0]); setIsDirty(true) }} type="file" id="image4" hidden />
-              </label>
+            <div className='flex items-center justify-between mb-6'>
+              <div>
+                <h3 className='text-lg font-semibold text-gray-900'>Product Images & Variants</h3>
+                <p className='text-sm text-gray-500 mt-1'>Choose if this product comes in multiple colors</p>
+              </div>
+              <div className='flex items-center gap-3'>
+                <span className='text-sm font-medium text-gray-700'>Color Variants</span>
+                <div
+                  onClick={() => { setHasVariants(!hasVariants); setVariants([]); setIsDirty(true) }}
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-200 flex items-center px-1 ${hasVariants ? 'bg-red-600' : 'bg-gray-300'}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${hasVariants ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                </div>
+              </div>
             </div>
-            <p className='text-xs text-gray-500'>Leave empty to keep existing images</p>
+
+            {!hasVariants ? (
+              // Normal image upload
+              <div>
+                <div className='flex gap-4 mb-3'>
+                  {[
+                    { id: 'image1', state: image1, setter: setImage1 },
+                    { id: 'image2', state: image2, setter: setImage2 },
+                    { id: 'image3', state: image3, setter: setImage3 },
+                    { id: 'image4', state: image4, setter: setImage4 }
+                  ].map(({ id, state, setter }) => (
+                    <label key={id} htmlFor={id} className='cursor-pointer'>
+                      <img
+                        className='w-24 h-24 object-cover rounded-2xl border-2 border-gray-200 hover:border-red-400 transition-colors'
+                        src={!state ? (existingImages[id.slice(-1) - 1] || assets.upload_area) : URL.createObjectURL(state)}
+                        alt='Product'
+                      />
+                      <input onChange={(e) => { setter(e.target.files[0]); setIsDirty(true) }} type='file' id={id} hidden />
+                    </label>
+                  ))}
+                </div>
+                <p className='text-xs text-gray-500'>Upload up to 4 product images. First image will be the main display image.</p>
+              </div>
+            ) : (
+              // Variant mode
+              <div className='space-y-4'>
+                {variants.map((variant, vIndex) => (
+                  <div key={vIndex} className='border-2 border-dashed border-gray-200 rounded-2xl p-5 hover:border-red-200 transition-colors'>
+                    <div className='flex items-center justify-between mb-4'>
+                      <div className='flex items-center gap-3'>
+                        <div
+                          className='w-8 h-8 rounded-full border-2 border-white shadow-md flex-shrink-0'
+                          style={{ backgroundColor: variant.colorCode }}
+                        ></div>
+                        <span className='font-medium text-gray-900'>
+                          {variant.color || `Variant ${vIndex + 1}`}
+                        </span>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => removeVariant(vIndex)}
+                        className='text-sm text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded-lg hover:bg-red-50 transition-all'
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className='grid grid-cols-2 gap-3 mb-4'>
+                      <div>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>Color Name *</label>
+                        <input
+                          type='text'
+                          placeholder='e.g. Red, Blue, Warm White'
+                          value={variant.color}
+                          onChange={(e) => updateVariant(vIndex, 'color', e.target.value)}
+                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>Color Swatch</label>
+                        <div className='flex items-center gap-2'>
+                          <input
+                            type='color'
+                            value={variant.colorCode}
+                            onChange={(e) => updateVariant(vIndex, 'colorCode', e.target.value)}
+                            className='w-10 h-10 rounded-xl border border-gray-200 cursor-pointer p-0.5'
+                          />
+                          <span className='text-xs text-gray-400 font-mono'>{variant.colorCode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className='grid grid-cols-4 gap-3 mb-4'>
+                      <div>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>Price ₹ *</label>
+                        <input
+                          type='number'
+                          placeholder='0'
+                          value={variant.price}
+                          onChange={(e) => updateVariant(vIndex, 'price', e.target.value)}
+                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>Compare at ₹</label>
+                        <input
+                          type='number'
+                          placeholder='Original price'
+                          value={variant.compareAtPrice}
+                          onChange={(e) => updateVariant(vIndex, 'compareAtPrice', e.target.value)}
+                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>Wholesale ₹</label>
+                        <input
+                          type='number'
+                          placeholder='Optional'
+                          value={variant.wholesalePrice}
+                          onChange={(e) => updateVariant(vIndex, 'wholesalePrice', e.target.value)}
+                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>Stock *</label>
+                        <input
+                          type='number'
+                          placeholder='0'
+                          value={variant.stock}
+                          onChange={(e) => updateVariant(vIndex, 'stock', e.target.value)}
+                          className='w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-400'
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className='block text-xs font-medium text-gray-600 mb-2'>Images (up to 4) *</label>
+                      <div className='flex gap-3'>
+                        {[0, 1, 2, 3].map((imgIndex) => (
+                          <label key={imgIndex} className='cursor-pointer'>
+                            <div className='w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors overflow-hidden flex items-center justify-center bg-gray-50'>
+                              {variant.previews[imgIndex] ? (
+                                <img src={variant.previews[imgIndex]} className='w-full h-full object-cover' alt='' />
+                              ) : (
+                                <span className='text-2xl text-gray-300'>+</span>
+                              )}
+                            </div>
+                            <input
+                              type='file'
+                              accept='image/*'
+                              hidden
+                              onChange={(e) => handleVariantImage(vIndex, imgIndex, e.target.files[0])}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type='button'
+                  onClick={addVariant}
+                  className='w-full py-3 border-2 border-dashed border-red-200 text-red-500 rounded-2xl hover:border-red-400 hover:bg-red-50 transition-all text-sm font-medium flex items-center justify-center gap-2'
+                >
+                  <span className='text-lg'>+</span> Add Color Variant
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Product Information Box */}
@@ -374,6 +661,8 @@ const Edit = ({ token }) => {
 
         {/* RIGHT COLUMN */}
         <div className='lg:col-span-1 space-y-8'>
+          {!hasVariants && (
+            <>
           {/* Pricing Details Box */}
           <div className='bg-white rounded-2xl p-6'>
             <h3 className='text-lg font-semibold mb-4 text-gray-900'>Pricing Details</h3>
@@ -476,6 +765,8 @@ const Edit = ({ token }) => {
               </label>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
 

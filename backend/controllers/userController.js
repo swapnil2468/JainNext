@@ -3,6 +3,7 @@ import bcrypt from "bcrypt"
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import nodemailer from 'nodemailer'
+import { OAuth2Client } from 'google-auth-library'
 import userModel from "../models/userModel.js";
 
 
@@ -318,5 +319,50 @@ const resetPassword = async (req, res) => {
     }
 }
 
+// ── Google OAuth Login ──────────────────────────────────────────────────────
 
-export { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword }
+const googleLogin = async (req, res) => {
+    try {
+        const { credential } = req.body
+
+        if (!credential) {
+            return res.json({ success: false, message: 'No credential provided' })
+        }
+
+        const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+        const ticket = await client.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID
+        })
+
+        const payload = ticket.getPayload()
+        const { email, name } = payload
+
+        // Check if user exists
+        let user = await userModel.findOne({ email })
+
+        if (user) {
+            // User exists, just create token
+            const token = createToken(user._id)
+            return res.json({ success: true, token })
+        }
+
+        // Create new user
+        const newUser = new userModel({
+            name,
+            email,
+            password: null // Google users don't have a password
+        })
+
+        const savedUser = await newUser.save()
+        const token = createToken(savedUser._id)
+
+        res.json({ success: true, token })
+
+    } catch (error) {
+        console.error('Error in Google login:', error)
+        res.json({ success: false, message: 'Google authentication failed' })
+    }
+}
+
+export { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword, googleLogin }

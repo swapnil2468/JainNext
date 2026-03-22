@@ -8,7 +8,7 @@ const Navbar = () => {
   const [visible, setVisible] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
-  const {setShowSearch , getCartCount , navigate, token, logout, setSelectedCategory, setSelectedSubCategory} = useContext(ShopContext)
+  const {getCartCount, setShowSearch, navigate, token, logout, setSelectedCategory, setSelectedSubCategory} = useContext(ShopContext)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -105,11 +105,14 @@ const Navbar = () => {
         </div>
 
         {/* RIGHT SIDE */}
-        <div className='flex items-center space-x-6'>
+        <div className='flex items-center space-x-4'>
 
-          {/* SEARCH */}
+          {/* SEARCH ICON */}
           <button
-            onClick={()=> { setShowSearch(true); navigate('/collection') }}
+            onClick={() => {
+              setShowSearch(true)
+              navigate('/collection')
+            }}
             className='text-neutral-700 hover:text-rose-700 transition-colors duration-200'
             aria-label="Search"
           >

@@ -13,25 +13,36 @@ const Cart = () => {
   const [stockIssues, setStockIssues] = useState([]);
 
   useEffect(() => {
-
-    if (products.length > 0) {
-      const tempData = [];
-      
-      for (const items in cartItems) {
-        if (cartItems[items] > 0) {
-          // Only add to cart if product still exists
-          const productExists = products.find((product) => product._id === items);
-          if (productExists) {
-            tempData.push({
-              _id: items,
-              quantity: cartItems[items]
-            })
-          }
+    // Build cartData from both cartItems and products
+    // Use cartItems as source of truth (what user added)
+    // Use products to validate and get product details
+    const tempData = [];
+    
+    for (const cartKey in cartItems) {
+      if (cartItems[cartKey] > 0) {
+        // Parse cartKey to extract productId and variantColor
+        const [productId, variantColor] = cartKey.split('__');
+        
+        // Find product - product must exist to display in cart
+        const productExists = products.find((product) => product._id === productId);
+        
+        if (productExists) {
+          // Product found - add to cart display
+          tempData.push({
+            _id: productId,
+            cartKey: cartKey,
+            variantColor: variantColor || null,
+            quantity: cartItems[cartKey]
+          });
         }
+        // If product doesn't exist, skip it (don't display, don't delete from cartItems)
+        // It will be handled by server-side cleanup on next refresh
       }
-      
-      setCartData(tempData);
     }
+    
+    // Always update cartData with what we have
+    // Don't wait for products to load - build with what's available
+    setCartData(tempData);
   }, [cartItems, products])
 
   const handleCheckoutClick = () => {
@@ -40,13 +51,22 @@ const Cart = () => {
     
     for (const item of cartData) {
       const product = products.find(p => p._id === item._id);
-      if (product && item.quantity > product.stock) {
-        stockValidationIssues.push({
-          id: item._id,
-          name: product.name,
-          requestedQty: item.quantity,
-          availableStock: product.stock
-        });
+      if (product) {
+        // Check variant stock if variant exists, otherwise check product stock
+        let availableStock = product.stock;
+        if (item.variantColor && product.variants?.length > 0) {
+          const variant = product.variants.find(v => v.color === item.variantColor);
+          availableStock = variant?.stock || 0;
+        }
+        
+        if (item.quantity > availableStock) {
+          stockValidationIssues.push({
+            id: item.cartKey,
+            name: item.variantColor ? `${product.name} - ${item.variantColor}` : product.name,
+            requestedQty: item.quantity,
+            availableStock: availableStock
+          });
+        }
       }
     }
     
@@ -67,7 +87,7 @@ const Cart = () => {
 
     // Check if any items remain after the stock correction
     const hasRemainingItems = cartData.some(item => {
-      const issue = stockIssues.find(i => i.id === item._id);
+      const issue = stockIssues.find(i => i.id === item.cartKey);
       return issue ? issue.availableStock > 0 : true;
     });
 
@@ -136,122 +156,174 @@ const Cart = () => {
       </div>
     )}
     
-    <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8'>
+    <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8 pb-20'>
 
+      {/* Page Header */}
       <div className='mb-8'>
-        <h1 className='text-4xl font-light text-neutral-900'>
-          Your <span className='font-medium text-rose-600'>Cart</span>
+        <h1 className='text-4xl font-bold text-black' style={{fontFamily: 'Inter, sans-serif'}}>
+          Your <span className='text-rose-600'>Cart</span>
         </h1>
         <div className='w-16 h-0.5 bg-rose-600 mt-2'></div>
       </div>
 
       {cartData.length === 0 ? (
-        <div className='flex flex-col items-center justify-center py-32'>
-          <div className='w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mb-6'>
-            <i className='ri-shopping-cart-line text-4xl text-rose-400'></i>
+        <div className='flex flex-col items-center justify-center py-32 max-w-2xl mx-auto'>
+          <div className='w-28 h-28 bg-gradient-to-br from-rose-50 via-rose-100 to-rose-50 rounded-2xl flex items-center justify-center mb-8 shadow-sm border border-rose-200/50'>
+            <i className='ri-shopping-cart-line text-5xl text-rose-500'></i>
           </div>
-          <h2 className='text-3xl font-light text-neutral-900 mb-3'>Your Cart is Empty</h2>
-          <p className='text-neutral-500 mb-2'>Looks like you haven't added anything yet!</p>
-          <p className='text-neutral-400 text-sm mb-8'>Browse our amazing products and find something you love ✨</p>
+          <h2 className='text-4xl font-semibold text-neutral-900 mb-4'>Your Cart is Empty</h2>
+          <p className='text-neutral-600 mb-3 text-lg'>Looks like you haven't added anything yet!</p>
+          <p className='text-neutral-500 text-base mb-10'>Browse our amazing collection and find something you love</p>
           <button
             onClick={() => navigate('/collection')}
-            className='bg-gradient-to-r from-rose-600 to-rose-700 text-white px-8 py-4 rounded-full font-medium hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-lg hover:-translate-y-0.5'
+            className='bg-gradient-to-r from-rose-600 to-rose-700 text-white px-10 py-4 rounded-xl font-semibold hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-xl hover:-translate-y-1 active:scale-95 flex items-center gap-2'
           >
-            Start Shopping Now
+            <i className='ri-shopping-bag-line'></i>
+            Continue Shopping
           </button>
         </div>
       ) : (
         <>
-          {/* Cart Items */}
-          <div className='bg-white rounded-2xl border border-neutral-200/60 shadow-sm overflow-hidden mb-8'>
+          {/* Main Layout - Side by Side */}
+          <div className='flex flex-col lg:flex-row gap-8 items-start'>
+
+            {/* LEFT - Cart Items (takes most space) */}
+            <div className='flex-1 bg-white rounded-2xl border border-neutral-200 shadow-md hover:shadow-lg transition-shadow overflow-hidden'>
             {/* Header row */}
-            <div className='hidden sm:grid grid-cols-[3fr_1fr_1fr_0.5fr] gap-4 px-6 py-4 bg-neutral-50 border-b border-neutral-100'>
-              <p className='text-sm font-semibold text-neutral-600 uppercase tracking-wide'>Product</p>
-              <p className='text-sm font-semibold text-neutral-600 uppercase tracking-wide'>Price</p>
-              <p className='text-sm font-semibold text-neutral-600 uppercase tracking-wide'>Quantity</p>
-              <p className='text-sm font-semibold text-neutral-600 uppercase tracking-wide'>Remove</p>
+            <div className='hidden sm:grid grid-cols-[3fr_1fr_1fr_1fr_0.5fr] gap-4 px-6 py-5 bg-gradient-to-r from-neutral-50 to-white border-b border-neutral-150'>
+              <p className='text-xs font-bold text-neutral-700 uppercase tracking-widest'>Product</p>
+              <p className='text-xs font-bold text-neutral-700 uppercase tracking-widest'>Price</p>
+              <p className='text-xs font-bold text-neutral-700 uppercase tracking-widest'>Quantity</p>
+              <p className='text-xs font-bold text-neutral-700 uppercase tracking-widest'>Total</p>
+              <p className='text-xs font-bold text-neutral-700 uppercase tracking-widest text-center'>Remove</p>
             </div>
             {/* Cart items */}
             {
               cartData.map((item, index) => {
                 const productData = products.find((product) => product._id === item._id);
                 return productData ? (
-                  <div key={index} className='grid grid-cols-[3fr_1fr_1fr_0.5fr] gap-4 px-6 py-5 border-b border-neutral-100 last:border-0 items-center'>
+                  <div key={index} className='grid grid-cols-[3fr_1fr_1fr_1fr_0.5fr] gap-4 px-6 py-5 border-b border-neutral-100 last:border-0 items-center'>
                     {/* Product */}
                     <div className='flex items-center gap-4'>
-                      <div className='w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 flex-shrink-0'>
-                        <img className='w-full h-full object-cover' src={productData.image[0]} alt='' />
+                      <div className='w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 flex-shrink-0 flex items-center justify-center'>
+                        <img
+                          className='w-full h-full object-cover'
+                          src={(() => {
+                            if (item.variantColor && productData.variants?.length > 0) {
+                              const variant = productData.variants.find(v => v.color === item.variantColor)
+                              const imageUrl = variant?.images?.[0] || productData.image?.[0];
+                              return imageUrl || 'https://via.placeholder.com/80?text=No+Image';
+                            }
+                            const imageUrl = productData.image?.[0];
+                            return imageUrl || 'https://via.placeholder.com/80?text=No+Image';
+                          })()}
+                          alt={productData.name}
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/80?text=No+Image';
+                          }}
+                        />
                       </div>
                       <div>
                         <p className='font-medium text-neutral-900 text-sm sm:text-base line-clamp-2'>{productData.name}</p>
                         <p className='text-xs text-neutral-500 mt-1'>{productData.category}</p>
-                        {canUseWholesalePrice(productData, item.quantity) && (
-                          <span className='text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full mt-1 inline-block'>Wholesale</span>
-                        )}
+                        <div className='flex gap-2 items-center flex-wrap mt-1'>
+                          {item.variantColor && productData.variants?.length > 0 && (
+                            <span className='inline-flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full'>
+                              <span className='w-2.5 h-2.5 rounded-full' style={{backgroundColor: productData.variants?.find(v => v.color === item.variantColor)?.colorCode || '#ccc'}}></span>
+                              {item.variantColor}
+                            </span>
+                          )}
+                          {canUseWholesalePrice(productData, item.quantity) && (
+                            <span className='text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full'>Wholesale</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     {/* Price */}
-                    <p className='font-medium text-neutral-900'>{currency}{getProductPrice(productData, item.quantity)}</p>
+                    {(() => {
+                      if (item.variantColor && productData.variants?.length > 0) {
+                        const variant = productData.variants.find(v => v.color === item.variantColor)
+                        const variantPrice = variant?.price || productData.retailPrice || productData.price
+                        return <p className='font-bold text-neutral-900 text-base'>{currency}{variantPrice}</p>
+                      }
+                      return <p className='font-bold text-neutral-900 text-base'>{currency}{getProductPrice(productData, item.quantity)}</p>
+                    })()}
                     {/* Quantity */}
-                    <div className='flex items-center border-2 border-neutral-200 rounded-xl overflow-hidden hover:border-rose-300 transition-colors w-fit'>
+                    <div className='flex items-center border-2 border-neutral-200 rounded-lg overflow-hidden hover:border-rose-400 hover:shadow-sm transition-all w-fit'>
                       <button
-                        onClick={() => item.quantity > 1 ? updateQuantity(item._id, item.quantity - 1) : updateQuantity(item._id, 0)}
-                        className='px-3 py-2 hover:bg-rose-50 transition-colors text-neutral-600'
+                        onClick={() => item.quantity > 1 ? updateQuantity(item.cartKey, item.quantity - 1) : updateQuantity(item.cartKey, 0)}
+                        className='px-3.5 py-2.5 hover:bg-rose-50 transition-colors text-neutral-700 font-medium text-lg'
                       >
                         <i className='ri-subtract-line'></i>
                       </button>
                       <input
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          if (val >= 0 && val <= 999) updateQuantity(item._id, val)
+                          if (val >= 0 && val <= 999) updateQuantity(item.cartKey, val)
                         }}
-                        className='w-12 text-center py-2 text-sm font-medium border-l border-r border-neutral-200 focus:outline-none'
+                        className='w-14 text-center py-2 text-sm font-bold border-l border-r border-neutral-200 focus:outline-none bg-white'
                         type='number'
                         min={1}
                         max={999}
                         value={item.quantity}
                       />
                       <button
-                        onClick={() => item.quantity < 999 && updateQuantity(item._id, item.quantity + 1)}
+                        onClick={() => item.quantity < 999 && updateQuantity(item.cartKey, item.quantity + 1)}
                         disabled={item.quantity >= 999}
-                        className='px-3 py-2 hover:bg-rose-50 transition-colors text-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed'
+                        className='px-3.5 py-2.5 hover:bg-rose-50 transition-colors text-neutral-700 font-medium text-lg disabled:opacity-40 disabled:cursor-not-allowed'
                       >
                         <i className='ri-add-line'></i>
                       </button>
                     </div>
+                    {/* Total */}
+                    {(() => {
+                      if (item.variantColor && productData.variants?.length > 0) {
+                        const variant = productData.variants.find(v => v.color === item.variantColor)
+                        const variantPrice = variant?.price || productData.retailPrice || productData.price
+                        const totalPrice = variantPrice * item.quantity
+                        return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>
+                      }
+                      const unitPrice = getProductPrice(productData, 1)
+                      const totalPrice = unitPrice * item.quantity
+                      return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>
+                    })()}
                     {/* Remove */}
                     <button
-                      onClick={() => updateQuantity(item._id, 0)}
-                      className='w-9 h-9 flex items-center justify-center rounded-full hover:bg-rose-50 hover:text-rose-600 text-neutral-400 transition-colors'
+                      onClick={() => updateQuantity(item.cartKey, 0)}
+                      className='w-9 h-9 flex items-center justify-center rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-all mx-auto'
                     >
-                      <i className='ri-delete-bin-line text-lg'></i>
+                      <i className='ri-delete-bin-line text-xl'></i>
                     </button>
                   </div>
                 ) : null
               })
             }
-          </div>
+            </div>
 
-          {/* Cart Totals and Checkout */}
-          <div className='flex justify-end mb-20'>
-            <div className='w-full sm:w-[450px] bg-white rounded-2xl border border-neutral-200/60 shadow-sm p-6'>
-              <h3 className='text-xl font-light text-neutral-900 mb-6 pb-4 border-b border-neutral-100'>
-                Order <span className='font-medium'>Summary</span>
-              </h3>
+            {/* RIGHT - Order Summary (fixed width, sticky) */}
+            <div className='w-full lg:w-[380px] flex-shrink-0 sticky top-24'>
+              <div className='bg-white rounded-2xl border border-neutral-200 shadow-lg p-7'>
+              <div className='flex items-center gap-2.5 mb-7 pb-5 border-b border-neutral-150'>
+                <div className='w-10 h-10 bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg flex items-center justify-center'>
+                  <i className='ri-bill-line text-rose-600'></i>
+                </div>
+                <h3 className='text-2xl font-semibold text-neutral-900'>Summary</h3>
+              </div>
               <CartTotal />
               <button
                 onClick={handleCheckoutClick}
-                className='w-full bg-gradient-to-r from-rose-600 to-rose-700 text-white py-4 rounded-xl font-medium hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-lg hover:-translate-y-0.5 mt-6 flex items-center justify-center gap-2'
+                className='w-full bg-gradient-to-r from-rose-600 to-rose-700 text-white py-4 rounded-xl font-semibold hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-xl hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2 text-base active:scale-95'
               >
-                <i className='ri-lock-line'></i>
+                <i className='ri-lock-line text-lg'></i>
                 Proceed to Checkout
               </button>
               <button
                 onClick={() => navigate('/collection')}
-                className='w-full mt-3 py-3 text-sm text-neutral-600 hover:text-rose-600 transition-colors text-center'
+                className='w-full mt-3 py-3.5 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors rounded-lg text-center border border-rose-200'
               >
                 ← Continue Shopping
               </button>
+              </div>
             </div>
           </div>
         </>

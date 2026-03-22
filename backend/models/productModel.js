@@ -18,7 +18,16 @@ const productSchema = new mongoose.Schema({
     },
     useCases: { type: String, default: "" },
     stock: { type: Number, required: true, default: 0 },
-    status: { type: String, enum: ['active', 'draft', 'archived'], default: 'active' }
+    status: { type: String, enum: ['active', 'draft', 'archived'], default: 'active' },
+    variants: [{
+        color: { type: String, required: true },
+        colorCode: { type: String, default: '#000000' },
+        price: { type: Number },
+        compareAtPrice: { type: Number },
+        wholesalePrice: { type: Number },
+        stock: { type: Number, default: 0 },
+        images: { type: Array, default: [] }
+    }]
 })
 
 const productModel  = mongoose.models.product || mongoose.model("product",productSchema);

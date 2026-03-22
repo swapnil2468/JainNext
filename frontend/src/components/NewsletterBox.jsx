@@ -23,7 +23,7 @@ const NewsletterBox = () => {
           {/* Email Form */}
           <form onSubmit={onSubmitHandler} className='flex flex-col sm:flex-row gap-3 max-w-md mx-auto pt-2'>
             <input
-              className='flex-1 px-6 py-4 rounded-full border border-white/30 bg-white/10 backdrop-blur-sm text-white placeholder-rose-200 text-sm focus:outline-none focus:border-white/60 focus:bg-white/20 transition-all duration-200'
+              className='flex-1 px-6 py-4 rounded-full border-2 border-white bg-white text-neutral-900 placeholder-neutral-400 text-sm font-medium focus:outline-none focus:border-rose-200 focus:ring-2 focus:ring-white/50 transition-all duration-200'
               type='email'
               placeholder='Enter your email'
               required

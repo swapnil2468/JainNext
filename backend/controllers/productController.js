@@ -58,19 +58,49 @@ const addProduct = async (req, res) => {
 
         const { name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
 
-        const image1 = req.files.image1 && req.files.image1[0]
-        const image2 = req.files.image2 && req.files.image2[0]
-        const image3 = req.files.image3 && req.files.image3[0]
-        const image4 = req.files.image4 && req.files.image4[0]
+        const hasVariants = req.body.hasVariants === 'true'
 
-        const images = [image1, image2, image3, image4].filter((item) => item !== undefined)
+        let imagesUrl = []
+        let productVariants = []
 
-        let imagesUrl = await Promise.all(
-            images.map(async (item) => {
-                let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
-                return result.secure_url
+        if (hasVariants) {
+          // Variant mode — upload images per variant
+          const variants = JSON.parse(req.body.variants || '[]')
+          productVariants = await Promise.all(
+            variants.map(async (variant, vIndex) => {
+              const variantImages = []
+              for (let i = 0; i < 4; i++) {
+                const key = `variantImage_${vIndex}_${i}`
+                if (req.files[key] && req.files[key][0]) {
+                  const result = await cloudinary.uploader.upload(req.files[key][0].path, { resource_type: 'image' })
+                  variantImages.push(result.secure_url)
+                }
+              }
+              return {
+                color: variant.color,
+                colorCode: variant.colorCode || '#000000',
+                price: variant.price ? Number(variant.price) : undefined,
+                compareAtPrice: variant.compareAtPrice ? Number(variant.compareAtPrice) : undefined,
+                wholesalePrice: variant.wholesalePrice ? Number(variant.wholesalePrice) : undefined,
+                stock: Number(variant.stock) || 0,
+                images: variantImages
+              }
             })
-        )
+          )
+        } else {
+          // No variants — upload base images as before
+          const image1 = req.files.image1 && req.files.image1[0]
+          const image2 = req.files.image2 && req.files.image2[0]
+          const image3 = req.files.image3 && req.files.image3[0]
+          const image4 = req.files.image4 && req.files.image4[0]
+          const images = [image1, image2, image3, image4].filter(Boolean)
+          imagesUrl = await Promise.all(
+            images.map(async (item) => {
+              const result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' })
+              return result.secure_url
+            })
+          )
+        }
 
         // Define all possible specification fields
         const specificationFields = [
@@ -128,7 +158,8 @@ const addProduct = async (req, res) => {
             date: Date.now(),
             specifications,
             useCases: useCases || "",
-            stock: Number(stock)
+            stock: hasVariants ? 0 : Number(stock),
+            variants: productVariants
         }
 
         const product = new productModel(productData);
@@ -253,20 +284,60 @@ const singleProduct = async (req, res) => {
 // function for update product
 const updateProduct = async (req, res) => {
     try {
-        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
+        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock, hasVariants } = req.body
         
         let updateData = {
             name,
             description,
-            retailPrice: Number(retailPrice),
-            compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
-            wholesalePrice: wholesalePrice ? Number(wholesalePrice) : undefined,
-            minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
             category,
             subCategory,
             bestseller: bestseller === "true" ? true : false,
             useCases: useCases || "",
-            stock: Number(stock)
+            minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
+            hasVariants: hasVariants === 'true' || hasVariants === true
+        }
+
+        // Handle variant vs non-variant mode
+        const isVariantMode = hasVariants === 'true' || hasVariants === true
+        
+        if (isVariantMode) {
+            // Update variants
+            const variants = JSON.parse(req.body.variants || '[]')
+            const productVariants = await Promise.all(
+                variants.map(async (variant, vIndex) => {
+                    const variantImages = variant.images || [];
+                    
+                    // Upload new variant images if provided
+                    const newImages = []
+                    for (let i = 0; i < 4; i++) {
+                        const key = `variantImage_${vIndex}_${i}`
+                        if (req.files && req.files[key] && req.files[key][0]) {
+                            const result = await cloudinary.uploader.upload(req.files[key][0].path, { resource_type: 'image' })
+                            newImages.push(result.secure_url)
+                        }
+                    }
+                    
+                    // Use new images if uploaded, otherwise keep existing ones
+                    const finalImages = newImages.length > 0 ? newImages : variantImages
+                    
+                    return {
+                        color: variant.color,
+                        colorCode: variant.colorCode || '#000000',
+                        price: variant.price ? Number(variant.price) : undefined,
+                        compareAtPrice: variant.compareAtPrice ? Number(variant.compareAtPrice) : undefined,
+                        wholesalePrice: variant.wholesalePrice ? Number(variant.wholesalePrice) : undefined,
+                        stock: Number(variant.stock) || 0,
+                        images: finalImages
+                    }
+                })
+            )
+            updateData.variants = productVariants
+        } else {
+            // Non-variant mode - update regular fields
+            updateData.retailPrice = Number(retailPrice)
+            updateData.compareAtPrice = compareAtPrice ? Number(compareAtPrice) : undefined
+            updateData.wholesalePrice = wholesalePrice ? Number(wholesalePrice) : undefined
+            updateData.stock = Number(stock)
         }
 
         // Define all possible specification fields
@@ -313,17 +384,17 @@ const updateProduct = async (req, res) => {
 
         updateData.specifications = specifications
 
-        // Handle image uploads if provided
-        if (req.files) {
-            const image1 = req.files.image1 && req.files.image1[0]
-            const image2 = req.files.image2 && req.files.image2[0]
-            const image3 = req.files.image3 && req.files.image3[0]
-            const image4 = req.files.image4 && req.files.image4[0]
+        // Handle image uploads if provided (for non-variant products)
+        if (!isVariantMode) {
+            const image1 = req.files?.image1?.[0]
+            const image2 = req.files?.image2?.[0]
+            const image3 = req.files?.image3?.[0]
+            const image4 = req.files?.image4?.[0]
 
             const images = [image1, image2, image3, image4].filter((item) => item !== undefined)
 
             if (images.length > 0) {
-                // Get old product to delete old images
+                // New images uploaded - delete old ones and replace
                 const oldProduct = await productModel.findById(productId);
                 if (oldProduct && oldProduct.image && oldProduct.image.length > 0) {
                     // Delete old images from Cloudinary
@@ -339,13 +410,33 @@ const updateProduct = async (req, res) => {
                     })
                 )
                 updateData.image = imagesUrl
+            } else if (req.body.existingImages) {
+                // No new images, but preserve existing ones by parsing the JSON
+                try {
+                    const existingImages = JSON.parse(req.body.existingImages)
+                    if (existingImages && existingImages.length > 0) {
+                        updateData.image = existingImages
+                    }
+                } catch (e) {
+                    // If parsing fails, just don't update images
+                }
             }
+            // If no images field in updateData, existing images are preserved automatically
         }
 
-        // Build proper MongoDB update: $set for defined fields, $unset to clear wholesalePrice if removed
+        // Build proper MongoDB update: $set for defined fields, $unset to clear old data structure
         const setData = Object.fromEntries(Object.entries(updateData).filter(([, v]) => v !== undefined))
         const updateOp = { $set: setData }
-        if (!wholesalePrice) updateOp.$unset = { wholesalePrice: 1 }
+        
+        // When switching modes, unset fields from the other mode
+        if (isVariantMode) {
+            // In variant mode: remove non-variant fields
+            updateOp.$unset = { image: 1, retailPrice: 1, compareAtPrice: 1, wholesalePrice: 1, stock: 1 }
+        } else {
+            // In non-variant mode: remove variant fields
+            updateOp.$unset = { variants: 1 }
+        }
+        
         const product = await productModel.findByIdAndUpdate(productId, updateOp, { new: true })
         res.json({ success: true, message: "Product Updated", product })
 

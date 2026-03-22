@@ -264,18 +264,49 @@ const Orders = ({ token }) => {
                 <div className='p-6 flex items-start gap-4 justify-between border-b border-gray-200'>
                   {/* Left - Product Image & Info */}
                   <div className='flex gap-4 flex-1'>
-                    <img 
-                      src={order.items[0]?.image?.[0] || assets.upload_area}
-                      alt={order.items[0]?.name}
-                      className='w-20 h-20 object-cover rounded-lg flex-shrink-0'
-                    />
+                    {(() => {
+                      const firstItem = order.items[0]
+                      let imageUrl = null
+                      
+                      if (firstItem?.selectedVariant && firstItem?.variants && firstItem.variants.length > 0) {
+                        const variant = firstItem.variants.find(v => v.color === firstItem.selectedVariant)
+                        if (variant && variant.images && variant.images.length > 0) {
+                          imageUrl = variant.images[0]
+                        }
+                      }
+                      if (!imageUrl && firstItem?.image && firstItem.image.length > 0) {
+                        imageUrl = firstItem.image[0]
+                      }
+                      
+                      return (
+                        <img 
+                          src={imageUrl || assets.upload_area}
+                          alt={firstItem?.name}
+                          className='w-20 h-20 object-cover rounded-lg flex-shrink-0'
+                        />
+                      )
+                    })()}
                     <div className='flex-1'>
-                      <h3 className='text-gray-900 font-bold text-base mb-2 antialiased'>{order.items[0]?.name || 'Product'}</h3>
+                      <div className='mb-2'>
+                        <h3 className='text-gray-900 font-bold text-base antialiased'>
+                          {(() => {
+                            const productNames = order.items.map(item => item.name)
+                            const uniqueNames = [...new Set(productNames)]
+                            
+                            if (uniqueNames.length <= 2) {
+                              return uniqueNames.join(', ')
+                            } else {
+                              return `${uniqueNames.slice(0, 2).join(', ')} + ${uniqueNames.length - 2} more`
+                            }
+                          })()}
+                        </h3>
+                      </div>
                       <p className='text-sm mb-1 antialiased'>
                         <span className='text-gray-400'>Order ID: </span>
                         <span className='text-gray-900 font-semibold'>#{order._id.slice(-8).toUpperCase()}</span>
                         <span className='text-gray-400'> • {new Date(order.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </p>
+                      <p className='text-xs text-gray-500 mb-2'>{order.items.length} item{order.items.length > 1 ? 's' : ''}</p>
                       <p className='text-2xl font-bold text-red-600 antialiased'>{currency}{order.amount.toFixed(2)}</p>
                     </div>
                   </div>
@@ -292,7 +323,7 @@ const Orders = ({ token }) => {
                     </span>
 
                     {/* Action Buttons */}
-                    <div className='flex gap-2'>
+                    <div className='flex flex-col gap-2 items-end'>
                       {order.status === 'New' && (
                         <button
                           onClick={() => {
@@ -316,12 +347,60 @@ const Orders = ({ token }) => {
                           Update Status
                         </button>
                       )}
+                      <button
+                        onClick={() => toggleExpand(order._id)}
+                        className='px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg text-xs font-medium transition-all antialiased tracking-wide flex items-center gap-2'
+                      >
+                        {expandedOrders[order._id] ? 'Hide Details' : 'View Details'}
+                        <i className={`ri-arrow-down-s-line transition-transform ${expandedOrders[order._id] ? 'rotate-180' : ''}`}></i>
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Details Section - Always Visible */}
-                <div className='p-6 bg-white grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-gray-200'>
+                {/* Items Section */}
+                {expandedOrders[order._id] && (
+                  <div className='p-6 bg-gray-50 border-t border-gray-200 animate-in fade-in duration-200'>
+                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased'>All Items ({order.items.length})</p>
+                    <div className='space-y-2'>
+                      {order.items.map((item, idx) => {
+                        let imageUrl = null
+                        if (item.selectedVariant && item.variants && item.variants.length > 0) {
+                          const variant = item.variants.find(v => v.color === item.selectedVariant)
+                          if (variant && variant.images && variant.images.length > 0) {
+                            imageUrl = variant.images[0]
+                          }
+                        }
+                        if (!imageUrl && item.image && item.image.length > 0) {
+                          imageUrl = item.image[0]
+                        }
+                        
+                        return (
+                          <div key={idx} className='flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200'>
+                            {imageUrl && (
+                              <img src={imageUrl} alt={item.name} className='w-12 h-12 object-cover rounded-lg' onError={(e) => e.target.style.display = 'none'} />
+                            )}
+                            <div className='flex-1'>
+                              <div className='flex items-baseline gap-2'>
+                                <p className='text-sm font-medium text-gray-900'>{item.name}</p>
+                                {item.selectedVariant && (
+                                  <span className='text-xs px-2 py-0.5 bg-rose-50 text-rose-700 rounded-full capitalize font-medium'>
+                                    {item.selectedVariant}
+                                  </span>
+                                )}
+                              </div>
+                              <p className='text-xs text-gray-500 mt-1'>Qty: {item.quantity} • {currency}{(item.retailPrice || item.price || 0).toFixed(2)}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Details Section - Collapsible */}
+                {expandedOrders[order._id] && (
+                  <div className='p-6 bg-white grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-gray-200 animate-in fade-in duration-200'>
                   {/* Customer Information */}
                   <div className='border-r border-gray-300 pr-6'>
                     <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
@@ -364,6 +443,8 @@ const Orders = ({ token }) => {
                     )}
                   </div>
                 </div>
+                )}
+
               </div>
             ))}
           </div>

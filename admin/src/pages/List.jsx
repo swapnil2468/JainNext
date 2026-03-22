@@ -25,6 +25,37 @@ const List = ({ token }) => {
   const [quickFilter, setQuickFilter] = useState(null) // 'active', 'lowStock', 'outOfStock', or null
   const itemsPerPage = 10
 
+  // Helper function to get variant data or product data
+  const getDisplayData = (product) => {
+    if (product.hasVariants && product.variants && product.variants.length > 0) {
+      const firstVariant = product.variants[0]
+      return {
+        price: firstVariant.price,
+        wholesalePrice: firstVariant.wholesalePrice,
+        stock: firstVariant.stock || 0,
+        images: firstVariant.images && firstVariant.images.length > 0 ? firstVariant.images : product.image,
+        isVariant: true,
+        variantInfo: `${firstVariant.color} (First of ${product.variants.length})`
+      }
+    }
+    return {
+      price: product.retailPrice || product.price,
+      wholesalePrice: product.wholesalePrice,
+      stock: product.stock || 0,
+      images: product.image,
+      isVariant: false,
+      variantInfo: null
+    }
+  }
+
+  // Helper function to get stock for sorting/filtering
+  const getStock = (product) => {
+    if (product.hasVariants && product.variants && product.variants.length > 0) {
+      return product.variants[0].stock || 0
+    }
+    return product.stock || 0
+  }
+
   const fetchList = async () => {
     try {
 
@@ -121,8 +152,56 @@ const List = ({ token }) => {
   // Get unique categories
   const categories = ['All Categories', ...new Set(list.map(item => item.category))]
 
+  // Expand variant products into separate rows
+  const expandedList = list.flatMap((product) => {
+    // Check if product is a variant product (backward compatible)
+    const isVariantProduct = product.hasVariants || (product.variants && product.variants.length > 0)
+    
+    if (isVariantProduct && product.variants && product.variants.length > 0) {
+      // Create a row for each variant
+      return product.variants.map((variant, variantIndex) => ({
+        _id: product._id,
+        productId: product._id,
+        name: product.name,
+        category: product.category,
+        status: product.status,
+        image: product.image,
+        retailPrice: product.retailPrice,
+        wholesalePrice: product.wholesalePrice,
+        // Variant-specific data
+        variantColor: variant.color,
+        variantColorCode: variant.colorCode,
+        price: variant.price,
+        wholesalePrice: variant.wholesalePrice,
+        stock: variant.stock || 0,
+        variantImages: variant.images || [],
+        isVariant: true,
+        variantIndex: variantIndex,
+        totalVariants: product.variants.length
+      }))
+    } else {
+      // Non-variant product - single row
+      return [{
+        _id: product._id,
+        productId: product._id,
+        name: product.name,
+        category: product.category,
+        status: product.status,
+        image: product.image,
+        retailPrice: product.retailPrice || product.price,
+        wholesalePrice: product.wholesalePrice,
+        price: product.retailPrice || product.price,
+        stock: product.stock || 0,
+        variantImages: [],
+        isVariant: false,
+        variantIndex: null,
+        totalVariants: null
+      }]
+    }
+  })
+
   // Filter products
-  let filteredList = list.filter((item) => {
+  let filteredList = expandedList.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === 'All Categories' || item.category === categoryFilter
     return matchesSearch && matchesCategory
@@ -130,19 +209,25 @@ const List = ({ token }) => {
 
   // Apply quick filter from stats cards
   if (quickFilter === 'active') {
-    filteredList = filteredList.filter(item => (item.status === 'active' || !item.status) && item.stock && item.stock > 0)
+    filteredList = filteredList.filter(item => {
+      return (item.status === 'active' || !item.status) && item.stock > 0
+    })
   } else if (quickFilter === 'lowStock') {
-    filteredList = filteredList.filter(item => (item.status === 'active' || !item.status) && item.stock && item.stock > 0 && item.stock <= 10)
+    filteredList = filteredList.filter(item => {
+      return (item.status === 'active' || !item.status) && item.stock > 0 && item.stock <= 10
+    })
   } else if (quickFilter === 'outOfStock') {
-    filteredList = filteredList.filter(item => !item.stock || item.stock === 0)
+    filteredList = filteredList.filter(item => {
+      return !item.stock || item.stock === 0
+    })
   }
 
   // Sort products
   const sortedList = [...filteredList].sort((a, b) => {
     if (stockFilter === 'Stock: High to Low') {
-      return (b.stock || 0) - (a.stock || 0)
+      return b.stock - a.stock
     } else {
-      return (a.stock || 0) - (b.stock || 0)
+      return a.stock - b.stock
     }
   })
 
@@ -153,11 +238,17 @@ const List = ({ token }) => {
     currentPage * itemsPerPage
   )
 
-  // Calculate stats
-  const totalItems = list.length
-  const activeItems = list.filter(item => (item.status === 'active' || !item.status) && item.stock && item.stock > 0).length
-  const lowStockItems = list.filter(item => (item.status === 'active' || !item.status) && item.stock && item.stock > 0 && item.stock <= 10).length
-  const outOfStockItems = list.filter(item => !item.stock || item.stock === 0).length
+  // Calculate stats (based on EXPANDED list with variants as separate items)
+  const totalItems = expandedList.length
+  const activeItems = expandedList.filter(item => {
+    return (item.status === 'active' || !item.status) && item.stock > 0
+  }).length
+  const lowStockItems = expandedList.filter(item => {
+    return (item.status === 'active' || !item.status) && item.stock > 0 && item.stock <= 10
+  }).length
+  const outOfStockItems = expandedList.filter(item => {
+    return !item.stock || item.stock === 0
+  }).length
 
   useEffect(() => {
     fetchList()
@@ -349,10 +440,17 @@ const List = ({ token }) => {
           <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto'>
             {selectedProductDetails.map((product) => (
               <div key={product._id} className='bg-white border border-red-200 rounded-xl p-3 flex items-start gap-3'>
-                <img src={product.image[0]} alt={product.name} className='w-12 h-12 rounded object-cover flex-shrink-0' />
+                <img 
+                  src={product.isVariant && product.variantImages.length > 0 ? product.variantImages[0] : product.image?.[0]} 
+                  alt={product.name} 
+                  className='w-12 h-12 rounded object-cover flex-shrink-0' 
+                />
                 <div className='flex-1'>
                   <p className='font-medium text-gray-800 text-sm'>{product.name}</p>
                   <p className='text-xs text-gray-500 mb-2'>{product.category}</p>
+                  {product.isVariant && (
+                    <p className='text-xs text-orange-600 font-medium mb-2'>{product.variantColor}</p>
+                  )}
                   <button
                     onClick={() => handleSelectProduct(product._id)}
                     className='text-xs text-red-600 hover:text-red-800 font-medium'
@@ -413,10 +511,19 @@ const List = ({ token }) => {
             />
             
             <div className='flex items-center gap-3 min-w-0'>
-              <img src={item.image[0]} alt={item.name} className='w-12 h-12 rounded object-cover flex-shrink-0' />
+              <img 
+                src={item.isVariant && item.variantImages.length > 0 ? item.variantImages[0] : item.image?.[0]} 
+                alt={item.name} 
+                className='w-12 h-12 rounded object-cover flex-shrink-0' 
+              />
               <div className='overflow-hidden min-w-0'>
                 <p className='font-medium text-gray-800 text-sm'>{item.name}</p>
                 <p className='text-xs text-gray-500'>{item._id?.substring(0, 8)}</p>
+                {item.isVariant && (
+                  <p className='text-xs text-orange-600 font-medium'>
+                    {item.variantColor} ({item.variantIndex + 1}/{item.totalVariants})
+                  </p>
+                )}
               </div>
             </div>
 
@@ -424,7 +531,7 @@ const List = ({ token }) => {
 
             <div>
               <p className='text-base'>
-                <span className='font-semibold text-red-600'>{currency}{item.retailPrice || item.price || '—'}</span>
+                <span className='font-semibold text-red-600'>{currency}{item.price || '—'}</span>
                 <span className='text-gray-400 text-xs ml-2'>(Retail)</span>
               </p>
               <p className='text-xs text-gray-500'>
@@ -526,14 +633,15 @@ const List = ({ token }) => {
       </div>
 
       {/* Confirmation Modal */}
-      {showConfirm && (
-        <ConfirmModal 
-          title="Delete Product"
-          message="Are you sure you want to delete this product?"
-          onConfirm={removeProduct}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
+      <ConfirmModal 
+        isOpen={showConfirm}
+        title="Delete Product"
+        message="Are you sure you want to delete this product?"
+        onConfirm={removeProduct}
+        onClose={() => setShowConfirm(false)}
+        confirmLabel="Delete"
+        confirmClassName="bg-red-600 hover:bg-red-700 text-white font-medium transition-all"
+      />
 
       {/* Status Update Modal */}
       {showStatusModal && (
