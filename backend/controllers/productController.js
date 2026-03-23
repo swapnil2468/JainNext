@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary"
 import productModel from "../models/productModel.js"
+import reviewModel from "../models/reviewModel.js"
 import { getUserFromToken } from "../middleware/wholesaleAuth.js"
 import jwt from 'jsonwebtoken'
 
@@ -47,25 +48,14 @@ const filterProductsPricing = (products, user) => {
     return products.map(product => filterProductPricing(product, user));
 }
 
-// Helper function to extract public_id from Cloudinary URL and delete image
+// Helper function to delete image from Cloudinary
 const deleteCloudinaryImage = async (imageUrl) => {
+    if (!imageUrl) return
     try {
-        // Extract public_id from URL
-        // Format: https://res.cloudinary.com/[cloud]/image/upload/v[version]/[public_id].[ext]
-        const parts = imageUrl.split('/');
-        const filename = parts[parts.length - 1];
-        const publicId = filename.split('.')[0];
-        
-        // Find the upload index to get the full path
-        const uploadIndex = parts.indexOf('upload');
-        if (uploadIndex !== -1 && uploadIndex < parts.length - 1) {
-            // Get everything after 'upload/' and before the file extension
-            const pathAfterUpload = parts.slice(uploadIndex + 1).join('/');
-            const fullPublicId = pathAfterUpload.substring(0, pathAfterUpload.lastIndexOf('.'));
-            
-            await cloudinary.uploader.destroy(fullPublicId);
-        }
+        const publicId = imageUrl.split('/').pop().split('.')[0]
+        await cloudinary.uploader.destroy(publicId)
     } catch (error) {
+        // Silently fail if image doesn't exist
     }
 };
 
@@ -248,18 +238,40 @@ const listProducts = async (req, res) => {
 // function for removing product
 const removeProduct = async (req, res) => {
     try {
-        // Get product to access images before deletion
-        const product = await productModel.findById(req.body.id);
+        const productId = req.body.id;
         
-        if (product && product.image && product.image.length > 0) {
-            // Delete all images from Cloudinary
+        // Get product to access all images (main + variants) before deletion
+        const product = await productModel.findById(productId);
+        
+        if (!product) {
+            return res.json({ success: false, message: "Product not found" });
+        }
+        
+        // Delete main product images from Cloudinary
+        if (product.image && product.image.length > 0) {
             await Promise.all(
                 product.image.map(imageUrl => deleteCloudinaryImage(imageUrl))
             );
         }
         
-        await productModel.findByIdAndDelete(req.body.id)
-        res.json({success:true,message:"Product Removed"})
+        // Delete variant images from Cloudinary
+        if (product.variants && product.variants.length > 0) {
+            for (const variant of product.variants) {
+                if (variant.images && variant.images.length > 0) {
+                    await Promise.all(
+                        variant.images.map(imageUrl => deleteCloudinaryImage(imageUrl))
+                    );
+                }
+            }
+        }
+        
+        // Delete all reviews for this product
+        await reviewModel.deleteMany({ productId: productId });
+        
+        // Delete the product itself
+        await productModel.findByIdAndDelete(productId);
+        
+        res.json({success:true,message:"Product Removed (including all reviews)"})
 
     } catch (error) {
 
@@ -368,6 +380,12 @@ const updateProduct = async (req, res) => {
                     }
                     
                     // Use new images if uploaded, otherwise keep existing ones
+                    // Delete old variant images from Cloudinary if new ones are being uploaded
+                    if (newImages.length > 0 && variantImages && variantImages.length > 0) {
+                        await Promise.all(
+                            variantImages.map(imageUrl => deleteCloudinaryImage(imageUrl))
+                        );
+                    }
                     const finalImages = newImages.length > 0 ? newImages : variantImages
                     
                     // Build attributes object based on variantTypes

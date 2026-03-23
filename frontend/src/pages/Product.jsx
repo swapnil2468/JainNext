@@ -107,24 +107,31 @@ const Product = () => {
   }
 
   useEffect(() => {
-    fetchProductData();
-    
-    // Track recently viewed products
-    if (slug) {
-      const recentlyViewed = JSON.parse(localStorage.getItem(STORAGE_KEYS.RECENTLY_VIEWED) || '[]');
-      
-      // Remove slug if it already exists to avoid duplicates
-      const updatedViewed = recentlyViewed.filter(id => id !== slug);
-      
-      // Add current product to the beginning of the array
-      updatedViewed.unshift(slug);
-      
-      // Keep only the last N viewed products
-      const limitedViewed = updatedViewed.slice(0, LIMITS.MAX_RECENTLY_VIEWED);
-      
-      localStorage.setItem(STORAGE_KEYS.RECENTLY_VIEWED, JSON.stringify(limitedViewed));
+    const loadProduct = async () => {
+      await fetchProductData()
     }
-  }, [slug,products])
+    loadProduct()
+  }, [slug, products])
+
+  // Separate useEffect for recently viewed - runs after productData is set
+  useEffect(() => {
+    if (!productData?._id) return
+    const recentlyViewed = JSON.parse(localStorage.getItem(STORAGE_KEYS.RECENTLY_VIEWED) || '[]')
+    const updatedViewed = recentlyViewed.filter(id => id !== productData._id)
+    updatedViewed.unshift(productData._id)
+    const limitedViewed = updatedViewed.slice(0, LIMITS.MAX_RECENTLY_VIEWED)
+    localStorage.setItem(STORAGE_KEYS.RECENTLY_VIEWED, JSON.stringify(limitedViewed))
+  }, [productData?._id])
+
+  // One-time cleanup: clear old slug-based recently viewed data
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.RECENTLY_VIEWED) || '[]')
+    // If stored values look like slugs (contain hyphens, no 24-char hex), clear them
+    const hasOldFormat = stored.some(id => id.includes('-') && !/^[a-f\d]{24}$/i.test(id))
+    if (hasOldFormat) {
+      localStorage.removeItem(STORAGE_KEYS.RECENTLY_VIEWED)
+    }
+  }, [])
 
   useEffect(() => {
     if (!cartItems || !productData) return

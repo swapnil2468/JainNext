@@ -38,7 +38,7 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
     return `${product._id}__${variant.color}`
   }
 
-  // Initialize selected variant and quantity when modal opens or product changes
+  // Initialize selected variant and attributes when modal opens or product changes
   useEffect(() => {
     if (product) {
       // Set first variant as selected by default
@@ -61,27 +61,70 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
           setSelectedAttributes(attrs)
         }
         
-        // Set quantity to what's already in cart for this variant
-        const cartKey = buildCartKey(firstVariant)
-        const currentQty = cartItems[cartKey] || 0
-        setQuantity(currentQty > 0 ? currentQty : 1)
+        // Check if first variant is already in cart
+        const firstVariantKey = buildCartKey(firstVariant)
+        const firstVariantCartQty = cartItems[firstVariantKey]
+        setQuantity(firstVariantCartQty > 0 ? firstVariantCartQty : 1)
       } else {
         setSelectedVariant(null)
         setSelectedAttributes({})
         setMainImage(product.image[0])
         
-        // Set quantity to what's already in cart for this product
-        const currentQty = cartItems[product._id] || 0
-        setQuantity(currentQty > 0 ? currentQty : 1)
+        // Always start with quantity 1 when modal opens
+        setQuantity(1)
       }
     }
   }, [product, isOpen, cartItems])
+
+  // Update main image when selected attributes change
+  useEffect(() => {
+    if (!product || !product.variants) return
+    
+    const hasVariants = product.variants && product.variants.length > 0
+    if (!hasVariants) return
+    
+    const matchingVariant = product.variants.find(v => {
+      if (!product.variantTypes) return false
+      for (const type of product.variantTypes) {
+        const selectedValue = selectedAttributes[type]
+        if (!selectedValue) return false
+        const variantValue = type === 'color'
+          ? (v.color || v.attributes?.color)
+          : v.attributes?.[type]
+        if (variantValue !== selectedValue) return false
+      }
+      return true
+    })
+    
+    if (matchingVariant?.images?.length > 0) {
+      setMainImage(matchingVariant.images[0])
+    }
+  }, [selectedAttributes, product])
 
   if (!isOpen || !product) return null
 
   // Handle variants
   const hasVariants = product.variants && product.variants.length > 0
-  const currentVariant = selectedVariant || (hasVariants ? product.variants[0] : null)
+  
+  // Always find current variant from selectedAttributes to keep in sync
+  const currentVariant = (() => {
+    if (!hasVariants) return null
+    if (Object.keys(selectedAttributes).length === 0) return product.variants[0]
+    
+    return product.variants.find(v => {
+      if (!product.variantTypes) return false
+      for (const type of product.variantTypes) {
+        const selectedValue = selectedAttributes[type]
+        if (!selectedValue) return false
+        const variantValue = type === 'color'
+          ? (v.color || v.attributes?.color)
+          : v.attributes?.[type]
+        if (variantValue !== selectedValue) return false
+      }
+      return true
+    }) || product.variants[0]
+  })()
+  
   const displayImages = hasVariants && currentVariant?.images?.length > 0
     ? currentVariant.images
     : product.image
@@ -141,10 +184,14 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
       setSelectedAttributes(attrs)
     }
     
-    // Update quantity to what's in cart for this variant
+    // Sync quantity with cart for this variant
     const cartKey = buildCartKey(variant)
-    const currentQty = cartItems[cartKey] || 0
-    setQuantity(currentQty > 0 ? currentQty : 1)
+    const cartQty = cartItems[cartKey]
+    if (cartQty > 0) {
+      setQuantity(cartQty)
+    } else {
+      setQuantity(1)
+    }
   }
 
   const handleAddToCart = async () => {
@@ -167,8 +214,8 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
       
       toast.success(`Added ${quantity} to cart!`)
       
-      // Don't close modal - just keep it open for their next action
-      // Quantity will be updated via useEffect when cartItems changes
+      // Don't reset quantity - let the cart sync useEffect handle it
+      // This way the quantity will stay at what the user added
     } catch (error) {
       // Silent error handling - toast will show any server errors
     } finally {
@@ -321,15 +368,47 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
                               <button
                                 key={value}
                                 onClick={() => {
-                                  // When clicking, find first variant with this value
-                                  const firstVariantWithValue = product.variants.find(v => {
-                                    const variantAttrValue = variantType === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[variantType]
-                                    return variantAttrValue === value
+                                  // Only update the clicked attribute, keep all other selected attributes unchanged
+                                  const newAttributes = {...selectedAttributes, [variantType]: value}
+                                  
+                                  // Verify this combination actually exists in variants
+                                  const combinationExists = product.variants.some(v => {
+                                    for (const [type, val] of Object.entries(newAttributes)) {
+                                      const variantValue = type === 'color'
+                                        ? (v.color || v.attributes?.color)
+                                        : v.attributes?.[type]
+                                      if (variantValue !== val) return false
+                                    }
+                                    return true
                                   })
                                   
-                                  // handleVariantChange will update both selectedVariant and selectedAttributes
-                                  if (firstVariantWithValue) {
-                                    handleVariantChange(firstVariantWithValue)
+                                  if (combinationExists) {
+                                    // Exact combination exists - just update the attribute
+                                    setSelectedAttributes(newAttributes)
+                                    // Check if this variant is already in cart and sync quantity
+                                    const attrStrings = Object.entries(newAttributes)
+                                      .map(([type, value]) => `${type}:${value}`)
+                                      .join('::')
+                                    const cartKey = `${product._id}__${attrStrings}`
+                                    const cartQty = cartItems[cartKey]
+                                    if (cartQty > 0) {
+                                      setQuantity(cartQty)
+                                    } else {
+                                      setQuantity(1)
+                                    }
+                                  } else {
+                                    // Combination does not exist - find closest match keeping the new value
+                                    const closestVariant = product.variants.find(v => {
+                                      const variantAttrValue = variantType === 'color'
+                                        ? (v.color || v.attributes?.color)
+                                        : v.attributes?.[variantType]
+                                      return variantAttrValue === value
+                                    })
+                                    
+                                    if (closestVariant) {
+                                      // Use handleVariantChange to properly update both selectedVariant and selectedAttributes
+                                      handleVariantChange(closestVariant)
+                                    }
                                   }
                                 }}
                                 disabled={matchingVariant?.stock === 0}

@@ -7,7 +7,7 @@ const About = () => {
     <div className='min-h-screen'>
 
       {/* Hero */}
-      <div className='relative pt-24 pb-24 px-6 lg:px-8 overflow-hidden bg-gradient-to-br from-rose-50/40 via-white to-orange-50/30 min-h-screen flex items-center justify-center'>
+      <div className='relative pt-24 pb-24 px-6 lg:px-8 overflow-hidden bg-gradient-to-br from-rose-50/60 via-rose-50/20 to-orange-50/30 min-h-screen flex items-center justify-center'>
         <div className='absolute top-0 left-1/4 w-96 h-96 bg-rose-200/20 rounded-full blur-3xl pointer-events-none'></div>
         <div className='absolute bottom-0 right-1/4 w-96 h-96 bg-orange-200/15 rounded-full blur-3xl pointer-events-none'></div>
         <div className='relative max-w-5xl mx-auto text-center'>
