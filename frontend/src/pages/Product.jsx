@@ -9,11 +9,27 @@ import SpecificationTable from '../components/SpecificationTable';
 import ReviewSection from '../components/ReviewSection';
 import RecentlyViewed from '../components/RecentlyViewed';
 
+// API endpoints
+const API_ENDPOINTS = {
+  REVIEW_STATS: '/api/review/stats'
+};
+
+// localStorage keys
+const STORAGE_KEYS = {
+  RECENTLY_VIEWED: 'recentlyViewed'
+};
+
+// Limits
+const LIMITS = {
+  MAX_RECENTLY_VIEWED: 20
+};
+
 const Product = () => {
 
-  const { productId } = useParams();
+  const { slug } = useParams();
   const { products, currency ,addToCart, navigate, cartItems, updateQuantity, token, userProfile, getProductPrice, canUseWholesalePrice, backendUrl } = useContext(ShopContext);
   const [productData, setProductData] = useState(false);
+  const [productId, setProductId] = useState(null); // Store the actual MongoDB _id
   const [image, setImage] = useState('')
   const [quantity, setQuantity] = useState(1);
   const [isInCart, setIsInCart] = useState(false);
@@ -52,9 +68,10 @@ const Product = () => {
   };
 
   const fetchProductData = async () => {
-    const product = products.find((item) => item._id === productId);
+    const product = products.find((item) => item.slug === slug || item._id === slug);
     
     if (product) {
+      setProductId(product._id); // Store the actual MongoDB _id
       setProductData(product);
       setImage(product.image[0]);
       
@@ -83,7 +100,7 @@ const Product = () => {
       
       // Fetch real review stats
       try {
-        const res = await axios.post(backendUrl + '/api/review/stats', { productId })
+        const res = await axios.post(backendUrl + API_ENDPOINTS.REVIEW_STATS, { productId })
         if (res.data.success) setReviewStats({ avgRating: res.data.avgRating, totalReviews: res.data.totalReviews })
       } catch (_) {}
     }
@@ -93,21 +110,21 @@ const Product = () => {
     fetchProductData();
     
     // Track recently viewed products
-    if (productId) {
-      const recentlyViewed = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
+    if (slug) {
+      const recentlyViewed = JSON.parse(localStorage.getItem(STORAGE_KEYS.RECENTLY_VIEWED) || '[]');
       
-      // Remove productId if it already exists to avoid duplicates
-      const updatedViewed = recentlyViewed.filter(id => id !== productId);
+      // Remove slug if it already exists to avoid duplicates
+      const updatedViewed = recentlyViewed.filter(id => id !== slug);
       
       // Add current product to the beginning of the array
-      updatedViewed.unshift(productId);
+      updatedViewed.unshift(slug);
       
-      // Keep only the last 20 viewed products
-      const limitedViewed = updatedViewed.slice(0, 20);
+      // Keep only the last N viewed products
+      const limitedViewed = updatedViewed.slice(0, LIMITS.MAX_RECENTLY_VIEWED);
       
-      localStorage.setItem('recentlyViewed', JSON.stringify(limitedViewed));
+      localStorage.setItem(STORAGE_KEYS.RECENTLY_VIEWED, JSON.stringify(limitedViewed));
     }
-  }, [productId,products])
+  }, [slug,products])
 
   useEffect(() => {
     if (!cartItems || !productData) return
@@ -257,9 +274,9 @@ const Product = () => {
         {/*---------- LEFT: Product Images Section (Thumbnails + Main Image) ------------- */}
         <div className='w-full lg:w-[55%] flex flex-col gap-3'>
           {/* Top part: thumbnails + main image side by side */}
-          <div className='flex gap-3'>
-            {/* Thumbnail Strip - Vertical on left side */}
-            <div className='flex flex-col gap-2 overflow-y-auto'>
+          <div className='flex flex-col sm:flex-row gap-3'>
+            {/* Thumbnail Strip - Hidden on mobile, vertical on sm+ */}
+            <div className='hidden sm:flex flex-col gap-2 overflow-y-auto'>
               {displayImages.map((item, index) => (
                 <img 
                   onClick={() => setImage(item)} 
@@ -277,12 +294,12 @@ const Product = () => {
 
             {/* Main Image */}
             <div 
-              className='flex-1 overflow-hidden bg-neutral-50 rounded-2xl border border-neutral-100 shadow-sm cursor-zoom-in relative min-h-[400px]'
+              className='flex-1 overflow-hidden bg-neutral-50 rounded-2xl border border-neutral-100 shadow-sm cursor-zoom-in relative min-h-[280px] sm:min-h-[400px]'
               onMouseMove={handleImageMouseMove}
               onMouseLeave={handleImageMouseLeave}
             >
               <img 
-                className={`w-full h-full min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] object-cover transition-transform duration-150 ease-out ${
+                className={`w-full h-full min-h-[280px] sm:min-h-[400px] md:min-h-[500px] lg:min-h-[600px] object-cover transition-transform duration-150 ease-out ${
                   isZooming ? 'scale-125' : 'scale-100'
                 }`}
                 style={{
@@ -527,31 +544,48 @@ const Product = () => {
                               <button
                                 key={value}
                                 onClick={() => {
-                                  // When clicking a variant button, find first variant matching this attribute
-                                  // Then extract ALL attributes to ensure valid combination
-                                  const firstVariantWithValue = productData.variants.find(v => {
-                                    const variantAttrValue = variantType === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[variantType]
-                                    return variantAttrValue === value
-                                  })
-                                  
+                                  // Only update the clicked attribute, keep all other selected attributes unchanged
+                                  // This prevents color from being reset when length is clicked
                                   const newAttributes = {...selectedAttributes, [variantType]: value}
                                   
-                                  // Extract all attributes from matching variant to ensure valid combination
-                                  if (firstVariantWithValue) {
-                                    productData.variantTypes.forEach(type => {
-                                      let variantValue
-                                      if (type === 'color') {
-                                        variantValue = firstVariantWithValue.color || firstVariantWithValue.attributes?.color
-                                      } else {
-                                        variantValue = firstVariantWithValue.attributes?.[type]
-                                      }
-                                      if (variantValue) {
-                                        newAttributes[type] = variantValue
-                                      }
-                                    })
-                                  }
+                                  // Verify this combination actually exists in variants
+                                  const combinationExists = productData.variants.some(v => {
+                                    for (const [type, val] of Object.entries(newAttributes)) {
+                                      const variantValue = type === 'color'
+                                        ? (v.color || v.attributes?.color)
+                                        : v.attributes?.[type]
+                                      if (variantValue !== val) return false
+                                    }
+                                    return true
+                                  })
                                   
-                                  setSelectedAttributes(newAttributes)
+                                  if (combinationExists) {
+                                    // Exact combination exists - just update the attribute
+                                    setSelectedAttributes(newAttributes)
+                                  } else {
+                                    // Combination does not exist - find closest match keeping the new value
+                                    // but allowing other attributes to change
+                                    const closestVariant = productData.variants.find(v => {
+                                      const variantValue = variantType === 'color'
+                                        ? (v.color || v.attributes?.color)
+                                        : v.attributes?.[variantType]
+                                      return variantValue === value
+                                    })
+                                    
+                                    if (closestVariant) {
+                                      const fallbackAttributes = {}
+                                      productData.variantTypes.forEach(type => {
+                                        if (type === variantType) {
+                                          fallbackAttributes[type] = value
+                                        } else if (type === 'color') {
+                                          fallbackAttributes[type] = closestVariant.color || closestVariant.attributes?.color
+                                        } else {
+                                          fallbackAttributes[type] = closestVariant.attributes?.[type]
+                                        }
+                                      })
+                                      setSelectedAttributes(fallbackAttributes)
+                                    }
+                                  }
                                 }}
                                 disabled={matchingVariant?.stock === 0}
                                 className={`px-4 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
@@ -780,7 +814,7 @@ const Product = () => {
       <ReviewSection productId={productId} token={token} onReviewChange={fetchProductData} />
 
       {/* --------- display related products ---------- */}
-      <RelatedProducts category={productData.category} subCategory={productData.subCategory} currentProductId={productData._id} />
+      <RelatedProducts category={productData.category} currentProductId={productData._id} />
 
       {/* --------- display recently viewed products ---------- */}
       <RecentlyViewed excludeProductId={productId} />

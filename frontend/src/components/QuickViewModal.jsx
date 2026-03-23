@@ -6,8 +6,37 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
   const { currency, setCartQuantity, userProfile, cartItems } = useContext(ShopContext)
   const [quantity, setQuantity] = useState(1)
   const [selectedVariant, setSelectedVariant] = useState(null)
+  const [selectedAttributes, setSelectedAttributes] = useState({})
   const [mainImage, setMainImage] = useState(product?.image?.[0])
   const [isAdding, setIsAdding] = useState(false)
+
+  // Helper to build cartKey from variant
+  const buildCartKey = (variant) => {
+    if (!variant) return product._id
+    
+    // Check if this is a new multi-variant product
+    if (product.variantTypes && product.variantTypes.length > 0) {
+      // New format: encode all attributes (color:Red::length:10m)
+      const attributes = {}
+      product.variantTypes.forEach(type => {
+        if (type === 'color') {
+          attributes.color = variant.color || variant.attributes?.color
+        } else if (variant.attributes?.[type]) {
+          attributes[type] = variant.attributes[type]
+        }
+      })
+      
+      if (Object.keys(attributes).length > 0) {
+        const attrStrings = Object.entries(attributes)
+          .map(([type, value]) => `${type}:${value}`)
+          .join('::')
+        return `${product._id}__${attrStrings}`
+      }
+    }
+    
+    // Fallback: old format with just color
+    return `${product._id}__${variant.color}`
+  }
 
   // Initialize selected variant and quantity when modal opens or product changes
   useEffect(() => {
@@ -19,12 +48,26 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
         setSelectedVariant(firstVariant)
         setMainImage(firstVariant.images?.[0] || product.image[0])
         
+        // Build attributes from first variant
+        if (product.variantTypes && product.variantTypes.length > 0) {
+          const attrs = {}
+          product.variantTypes.forEach(type => {
+            if (type === 'color') {
+              attrs.color = firstVariant.color || firstVariant.attributes?.color
+            } else if (firstVariant.attributes?.[type]) {
+              attrs[type] = firstVariant.attributes[type]
+            }
+          })
+          setSelectedAttributes(attrs)
+        }
+        
         // Set quantity to what's already in cart for this variant
-        const cartKey = `${product._id}__${firstVariant.color}`
+        const cartKey = buildCartKey(firstVariant)
         const currentQty = cartItems[cartKey] || 0
         setQuantity(currentQty > 0 ? currentQty : 1)
       } else {
         setSelectedVariant(null)
+        setSelectedAttributes({})
         setMainImage(product.image[0])
         
         // Set quantity to what's already in cart for this product
@@ -42,39 +85,92 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
   const displayImages = hasVariants && currentVariant?.images?.length > 0
     ? currentVariant.images
     : product.image
-  const displayPrice = hasVariants && currentVariant?.price
-    ? currentVariant.price
-    : (product.retailPrice || product.price)
-  const displayWholesalePrice = hasVariants && currentVariant?.wholesalePrice
-    ? currentVariant.wholesalePrice
-    : product.wholesalePrice
+  
+  // Price fetching - with better fallbacks
+  const displayPrice = (() => {
+    if (!hasVariants || !currentVariant) {
+      return product.retailPrice || product.price || 0
+    }
+    
+    // Try variant price first
+    if (currentVariant.price !== undefined && currentVariant.price !== null && currentVariant.price !== '') {
+      return Number(currentVariant.price)
+    }
+    
+    // Fallback to product retail price
+    if (product.retailPrice) {
+      return product.retailPrice
+    }
+    
+    // Final fallback to product price
+    return product.price || 0
+  })()
+  
+  const displayWholesalePrice = (() => {
+    if (!hasVariants || !currentVariant) {
+      return product.wholesalePrice
+    }
+    
+    // Try variant wholesale price first
+    if (currentVariant.wholesalePrice !== undefined && currentVariant.wholesalePrice !== null && currentVariant.wholesalePrice !== '') {
+      return Number(currentVariant.wholesalePrice)
+    }
+    
+    // Fallback to product wholesale price
+    return product.wholesalePrice
+  })()
+  
   const displayStock = hasVariants && currentVariant
-    ? currentVariant.stock
-    : product.stock
+    ? (currentVariant.stock !== undefined && currentVariant.stock !== null ? currentVariant.stock : 0)
+    : (product.stock || 0)
 
   const handleVariantChange = (variant) => {
     setSelectedVariant(variant)
     setMainImage(variant.images?.[0] || product.image[0])
     
+    // Build attributes from selected variant
+    if (product.variantTypes && product.variantTypes.length > 0) {
+      const attrs = {}
+      product.variantTypes.forEach(type => {
+        if (type === 'color') {
+          attrs.color = variant.color || variant.attributes?.color
+        } else if (variant.attributes?.[type]) {
+          attrs[type] = variant.attributes[type]
+        }
+      })
+      setSelectedAttributes(attrs)
+    }
+    
     // Update quantity to what's in cart for this variant
-    const cartKey = `${product._id}__${variant.color}`
+    const cartKey = buildCartKey(variant)
     const currentQty = cartItems[cartKey] || 0
     setQuantity(currentQty > 0 ? currentQty : 1)
   }
 
   const handleAddToCart = async () => {
     setIsAdding(true)
-    const variantColor = currentVariant?.color || null
     
     try {
-      // Use setCartQuantity to set exact quantity instead of adding
-      await setCartQuantity(product._id, quantity, variantColor)
+      // Determine if we should use selectedAttributes (new format) or variantColor (old format)
+      const hasMultiVariants = product.variantTypes && product.variantTypes.length > 0
+      
+      if (hasMultiVariants && Object.keys(selectedAttributes).length > 0) {
+        // New format: use selectedAttributes
+        await setCartQuantity(product._id, quantity, null, selectedAttributes)
+      } else if (currentVariant?.color) {
+        // Old format: use variantColor (backward compatibility)
+        await setCartQuantity(product._id, quantity, currentVariant.color)
+      } else {
+        // Non-variant product
+        await setCartQuantity(product._id, quantity)
+      }
+      
       toast.success(`Added ${quantity} to cart!`)
       
       // Don't close modal - just keep it open for their next action
       // Quantity will be updated via useEffect when cartItems changes
     } catch (error) {
-      console.error('Error adding to cart:', error)
+      // Silent error handling - toast will show any server errors
     } finally {
       setIsAdding(false)
     }
@@ -108,7 +204,7 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
             {/* Left: Images */}
             <div className='flex flex-col gap-3'>
               <div className='aspect-square bg-neutral-100 rounded-xl overflow-hidden border border-neutral-200'>
-                <img src={mainImage || displayImages?.[0]} alt={product.name} className='w-full h-full object-cover' />
+                <img src={mainImage || displayImages?.[0]} alt={product.name} className='w-full h-full object-cover' loading='lazy' />
               </div>
               {displayImages && displayImages.length > 1 && (
                 <div className='flex gap-2 overflow-x-auto'>
@@ -172,24 +268,86 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
               )}
 
               {/* Variants */}
-              {hasVariants && (
-                <div>
-                  <p className='text-sm font-medium text-neutral-700 mb-2'>Color</p>
-                  <div className='flex flex-wrap gap-2'>
-                    {product.variants.map((variant, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleVariantChange(variant)}
-                        className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                          selectedVariant?.color === variant.color
-                            ? 'bg-rose-600 text-white border-rose-600'
-                            : 'bg-white text-neutral-800 border-neutral-200 hover:border-rose-300'
-                        }`}
-                      >
-                        {variant.color}
-                      </button>
-                    ))}
-                  </div>
+              {hasVariants && product.variantTypes && product.variantTypes.length > 0 && (
+                <div className='space-y-4 border-t border-neutral-200 pt-4'>
+                  {(() => {
+                    // Helper to get available options for a variant type
+                    const getAvailableOptionsForType = (type) => {
+                      if (type === 'color') {
+                        // Show all unique colors - check both legacy and new format
+                        return Array.from(new Set(
+                          product.variants
+                            .map(v => v.color || v.attributes?.color)
+                            .filter(Boolean)
+                        ))
+                      } else if (selectedAttributes.color) {
+                        // Filter by selected color - check both legacy and new format
+                        return Array.from(new Set(
+                          product.variants
+                            .filter(v => (v.color === selectedAttributes.color || v.attributes?.color === selectedAttributes.color))
+                            .map(v => v.attributes?.[type])
+                            .filter(Boolean)
+                        ))
+                      } else {
+                        // No color selected, show all options for this type
+                        return Array.from(new Set(
+                          product.variants
+                            .map(v => v.attributes?.[type])
+                            .filter(Boolean)
+                        ))
+                      }
+                    }
+
+                    return product.variantTypes.map((variantType) => (
+                      <div key={variantType}>
+                        <p className='text-sm font-medium text-neutral-700 mb-2 capitalize'>
+                          {variantType} {selectedAttributes[variantType] && (
+                            <span className='text-rose-600 ml-1'>({selectedAttributes[variantType]})</span>
+                          )}
+                        </p>
+                        <div className='flex flex-wrap gap-2'>
+                          {getAvailableOptionsForType(variantType).map((value) => {
+                            // Check if variant with this value exists
+                            const testAttributes = {...selectedAttributes, [variantType]: value}
+                            const matchingVariant = product.variants.find(v => {
+                              for (const [type, val] of Object.entries(testAttributes)) {
+                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                                if (variantValue !== val) return false
+                              }
+                              return true
+                            })
+                            
+                            return (
+                              <button
+                                key={value}
+                                onClick={() => {
+                                  // When clicking, find first variant with this value
+                                  const firstVariantWithValue = product.variants.find(v => {
+                                    const variantAttrValue = variantType === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[variantType]
+                                    return variantAttrValue === value
+                                  })
+                                  
+                                  // handleVariantChange will update both selectedVariant and selectedAttributes
+                                  if (firstVariantWithValue) {
+                                    handleVariantChange(firstVariantWithValue)
+                                  }
+                                }}
+                                disabled={matchingVariant?.stock === 0}
+                                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                                  selectedAttributes[variantType] === value
+                                    ? 'bg-rose-600 text-white border-rose-600'
+                                    : 'bg-white text-neutral-800 border-neutral-200 hover:border-rose-300'
+                                } ${matchingVariant?.stock === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                              >
+                                {value}
+                                {matchingVariant?.stock === 0 && <span className='text-xs ml-1'>(Out)</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  })()}
                 </div>
               )}
 

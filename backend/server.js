@@ -24,15 +24,14 @@ const requiredEnvVars = [
 // Warn (but don't exit) for optional service keys
 const optionalEnvVars = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'EMAIL_USER', 'EMAIL_PASS'];
 optionalEnvVars.forEach(v => {
-    if (!process.env[v]) console.warn(`⚠️  Optional env var not set: ${v}`);
+    if (!process.env[v]) {
+        // Optional variable not set
+    }
 });
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
-    console.error('❌ Error: Missing required environment variables:');
-    missingEnvVars.forEach(varName => console.error(`   - ${varName}`));
-    console.error('\nPlease configure all required environment variables in .env file');
     process.exit(1);
 }
 
@@ -45,9 +44,7 @@ const port = process.env.PORT || 4000;
     try {
         await connectDB();
         await connectCloudinary();
-        console.log('✅ All services connected successfully');
     } catch (error) {
-        console.error('❌ Failed to connect services:', error.message);
         process.exit(1);
     }
 })();
@@ -72,4 +69,23 @@ app.get('/',(req,res)=>{
     res.send("API Working")
 })
 
-app.listen(port, ()=> console.log('Server started on PORT : '+ port))
+const tryListen = (portToTry, portsToTry) => {
+    const server = app.listen(portToTry, () => {
+        console.log(`Server running on port ${portToTry}`)
+    })
+    
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE' && portsToTry.length > 0) {
+            const nextPort = portsToTry.shift()
+            console.error(`Port ${portToTry} is in use. Trying port ${nextPort}...`)
+            tryListen(nextPort, portsToTry)
+        } else {
+            throw err
+        }
+    })
+}
+
+// Try ports: 4000, 3000, 4002, 4003, 5000
+const initialPort = process.env.PORT || 4000
+const fallbackPorts = [3000, 4002, 4003, 5000, 8000]
+tryListen(initialPort, fallbackPorts)

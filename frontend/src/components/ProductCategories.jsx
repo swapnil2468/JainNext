@@ -8,33 +8,49 @@ const ProductCategories = () => {
 
   const categories = [
     {
-      name: 'LED String Lights',
+      name: 'String Lights',
       image: 'https://readdy.ai/api/search-image?query=collection of elegant modern pendant lights hanging in sophisticated minimalist interior with soft warm lighting and clean white walls luxury home decor photography&width=800&height=600&seq=category-1&orientation=landscape',
     },
     {
-      name: 'Decorative Lights',
+      name: 'Waterfalls Lights',
       image: 'https://readdy.ai/api/search-image?query=stunning crystal and brass chandeliers displayed in elegant showroom with refined white interior and soft ambient lighting high end luxury lighting display&width=800&height=600&seq=category-2&orientation=landscape',
     },
     {
-      name: 'Curtain & Net Lights',
+      name: 'SMD Lights',
       image: 'https://readdy.ai/api/search-image?query=modern designer floor lamps arranged in minimalist contemporary living space with neutral tones and clean aesthetic premium interior design photography&width=800&height=600&seq=category-3&orientation=landscape',
     },
     {
-      name: 'Strip & Rope Lights',
+      name: 'Strip Lights',
       image: 'https://readdy.ai/api/search-image?query=beautiful wall sconce lights mounted on textured white wall in sophisticated hallway setting with warm glow and elegant shadows luxury home lighting&width=800&height=600&seq=category-4&orientation=landscape',
     },
     {
-      name: 'Flood & Outdoor Lights',
+      name: 'Par & DJ Lights',
       image: 'https://readdy.ai/api/search-image?query=premium table lamps with fabric shades displayed on marble surface in refined minimalist setting with soft natural light elegant home decor styling&width=800&height=600&seq=category-5&orientation=landscape',
     },
     {
-      name: 'Festival & Patriotic Lights',
+      name: 'Flood & Outdoor Lights',
       image: 'https://readdy.ai/api/search-image?query=stylish outdoor lighting fixtures illuminating modern architectural exterior with clean lines and warm evening glow contemporary landscape lighting design&width=800&height=600&seq=category-6&orientation=landscape',
+    },
+    {
+      name: 'Decorative Lighting',
+      image: 'https://readdy.ai/api/search-image?query=beautiful decorative lighting arrangements in modern interior space with warm ambient glow and elegant styling luxury home lighting design&width=800&height=600&seq=category-7&orientation=landscape',
+    },
+    // {
+    //   name: 'Neon Sign Lights',
+    //   image: 'https://readdy.ai/api/search-image?query=modern neon sign lights glowing in contemporary space with vibrant colors and sleek design creative lighting solutions&width=800&height=600&seq=category-8&orientation=landscape',
+    // },
+    {
+      name: 'Alluminium Profile',
+      image: 'https://readdy.ai/api/search-image?query=aluminum profile lighting fixtures with premium construction and modern design lighting infrastructure&width=800&height=600&seq=category-9&orientation=landscape',
+    },
+    {
+      name: 'Power Accessories',
+      image: 'https://readdy.ai/api/search-image?query=power accessories and electrical components for lighting systems professional quality equipment&width=800&height=600&seq=category-10&orientation=landscape',
     },
   ]
 
   return (
-    <section className="py-16 px-6 lg:px-8 bg-gradient-to-b from-white to-neutral-50">
+    <section id="learn" className="py-16 px-6 lg:px-8 bg-gradient-to-b from-white to-neutral-50 scroll-mt-24">
       <div className="w-full px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-12 space-y-3">

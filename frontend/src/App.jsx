@@ -14,9 +14,10 @@ import Profile from './pages/Profile'
 import Verify from './pages/Verify'
 import Wholesale from './pages/Wholesale'
 import ResetPassword from './pages/ResetPassword'
+import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
-import PromoBanner from './components/PromoBanner'
+import ErrorBoundary from './components/ErrorBoundary'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -33,28 +34,30 @@ const ScrollToTop = () => {
 
 const App = () => {
   return (
-    <div className='w-full overflow-x-hidden'>
-      {/* <PromoBanner /> */}
-      <ToastContainer />
-      <ScrollToTop />
-      <Navbar />
-      <Routes>
+    <ErrorBoundary>
+      <div className='w-full overflow-x-hidden'>
+        <ToastContainer />
+        <ScrollToTop />
+        <Navbar />
+        <Routes>
           <Route path='/' element={<Home />} />
-            <Route path='/collection' element={<Collection />} />
-            <Route path='/about' element={<About />} />
-            <Route path='/contact' element={<Contact />} />
-            <Route path='/product/:productId' element={<Product />} />
-            <Route path='/cart' element={<Cart />} />
-            <Route path='/login' element={<Login />} />
-            <Route path='/place-order' element={<PlaceOrder />} />
-            <Route path='/orders' element={<Orders />} />
-            <Route path='/profile' element={<Profile />} />
-            <Route path='/verify' element={<Verify />} />
-            <Route path='/wholesale' element={<Wholesale />} />
-            <Route path='/reset-password' element={<ResetPassword />} />
+          <Route path='/collection' element={<Collection />} />
+          <Route path='/about' element={<About />} />
+          <Route path='/contact' element={<Contact />} />
+          <Route path='/product/:slug' element={<Product />} />
+          <Route path='/cart' element={<Cart />} />
+          <Route path='/login' element={<Login />} />
+          <Route path='/place-order' element={<PlaceOrder />} />
+          <Route path='/orders' element={<Orders />} />
+          <Route path='/profile' element={<Profile />} />
+          <Route path='/verify' element={<Verify />} />
+          <Route path='/wholesale' element={<Wholesale />} />
+          <Route path='/reset-password' element={<ResetPassword />} />
+          <Route path='*' element={<NotFound />} />
         </Routes>
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </ErrorBoundary>
   )
 }
 

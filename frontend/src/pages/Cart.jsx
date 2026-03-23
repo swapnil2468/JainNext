@@ -237,13 +237,35 @@ const Cart = () => {
                   if (Object.keys(item.variantAttributes).length === 0 || !productData?.variants?.length) {
                     return null;
                   }
-                  return productData.variants.find(v => {
+                  
+                  // Strict match: find variant matching ALL provided attributes
+                  const strictMatch = productData.variants.find(v => {
                     for (const [type, value] of Object.entries(item.variantAttributes)) {
                       const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type];
                       if (variantValue !== value) return false;
                     }
                     return true;
                   });
+                  
+                  if (strictMatch) return strictMatch;
+                  
+                  // Fallback 1: If we have a color attribute, try to match by color alone
+                  if (item.variantAttributes.color && !productData.variantTypes?.includes('length')) {
+                    return productData.variants.find(v => 
+                      (v.color === item.variantAttributes.color || v.attributes?.color === item.variantAttributes.color)
+                    );
+                  }
+                  
+                  // Fallback 2: Return first variant if color exists in attributes (for backward compat)
+                  if (item.variantAttributes.color) {
+                    const colorVariant = productData.variants.find(v => 
+                      (v.color === item.variantAttributes.color || v.attributes?.color === item.variantAttributes.color)
+                    );
+                    if (colorVariant) return colorVariant;
+                  }
+                  
+                  // Fallback 3: Return first variant if nothing matches
+                  return productData.variants[0] || null;
                 };
                 
                 const matchingVariant = findMatchingVariant();
@@ -259,9 +281,9 @@ const Cart = () => {
                 const variantDisplay = formatVariantDisplay();
                 
                 return productData ? (
-                  <div key={index} className='grid grid-cols-[3fr_1fr_1fr_1fr_0.5fr] gap-4 px-6 py-5 border-b border-neutral-100 last:border-0 items-center'>
+                  <div key={index} className='block sm:grid sm:grid-cols-[3fr_1fr_1fr_1fr_0.5fr] gap-4 px-6 py-5 border-b border-neutral-100 last:border-0 sm:items-center'>
                     {/* Product */}
-                    <div className='flex items-center gap-4'>
+                    <div className='flex items-center gap-4 mb-4 sm:mb-0'>
                       <div className='w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 flex-shrink-0 flex items-center justify-center'>
                         <img
                           className='w-full h-full object-cover'
@@ -297,15 +319,26 @@ const Cart = () => {
                       </div>
                     </div>
                     {/* Price */}
-                    {(() => {
-                      if (matchingVariant) {
-                        const variantPrice = matchingVariant.price || productData.retailPrice || productData.price;
-                        return <p className='font-bold text-neutral-900 text-base'>{currency}{variantPrice}</p>;
-                      }
-                      return <p className='font-bold text-neutral-900 text-base'>{currency}{getProductPrice(productData, item.quantity)}</p>;
-                    })()}
+                    <div className='flex justify-between items-center sm:block'>
+                      <span className='text-xs font-bold text-neutral-500 sm:hidden'>Price</span>
+                      {(() => {
+                        if (matchingVariant) {
+                          const variantPrice = (matchingVariant.price !== undefined && matchingVariant.price !== null && matchingVariant.price !== '') ? Number(matchingVariant.price) : (productData.retailPrice || productData.price);
+                          return <p className='font-bold text-neutral-900 text-base'>{currency}{variantPrice || 0}</p>;
+                        }
+                        // For variant products without main price, use first variant price
+                        let price = getProductPrice(productData, 1) || productData.retailPrice || productData.price;
+                        if (!price && productData?.variants?.[0]?.price) {
+                          price = productData.variants[0].price;
+                        }
+                        price = price || 0;
+                        return <p className='font-bold text-neutral-900 text-base'>{currency}{price}</p>;
+                      })()}
+                    </div>
                     {/* Quantity */}
-                    <div className='flex items-center border-2 border-neutral-200 rounded-lg overflow-hidden hover:border-rose-400 hover:shadow-sm transition-all w-fit'>
+                    <div className='flex justify-between items-center sm:block'>
+                      <span className='text-xs font-bold text-neutral-500 sm:hidden'>Qty</span>
+                      <div className='flex items-center border-2 border-neutral-200 rounded-lg overflow-hidden hover:border-rose-400 hover:shadow-sm transition-all w-fit'>
                       <button
                         onClick={() => item.quantity > 1 ? updateQuantity(item.cartKey, item.quantity - 1) : updateQuantity(item.cartKey, 0)}
                         className='px-3.5 py-2.5 hover:bg-rose-50 transition-colors text-neutral-700 font-medium text-lg'
@@ -331,24 +364,30 @@ const Cart = () => {
                         <i className='ri-add-line'></i>
                       </button>
                     </div>
+                    </div>
                     {/* Total */}
-                    {(() => {
-                      if (matchingVariant) {
-                        const variantPrice = matchingVariant.price || productData.retailPrice || productData.price;
-                        const totalPrice = variantPrice * item.quantity;
+                    <div className='flex justify-between items-center sm:block'>
+                      <span className='text-xs font-bold text-neutral-500 sm:hidden'>Total</span>
+                      {(() => {
+                        if (matchingVariant) {
+                          const variantPrice = (matchingVariant.price !== undefined && matchingVariant.price !== null && matchingVariant.price !== '') ? Number(matchingVariant.price) : (productData.retailPrice || productData.price);
+                          const totalPrice = (variantPrice || 0) * item.quantity;
+                          return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>;
+                        }
+                        const unitPrice = getProductPrice(productData, 1) || productData.retailPrice || productData.price || (productData?.variants?.[0]?.price) || 0;
+                        const totalPrice = unitPrice * item.quantity;
                         return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>;
-                      }
-                      const unitPrice = getProductPrice(productData, 1);
-                      const totalPrice = unitPrice * item.quantity;
-                      return <p className='font-bold text-neutral-900 text-base'>{currency}{totalPrice}</p>;
-                    })()}
+                      })()}
+                    </div>
                     {/* Remove */}
-                    <button
-                      onClick={() => updateQuantity(item.cartKey, 0)}
-                      className='w-9 h-9 flex items-center justify-center rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-all mx-auto'
-                    >
-                      <i className='ri-delete-bin-line text-xl'></i>
-                    </button>
+                    <div className='flex justify-end sm:justify-center'>
+                      <button
+                        onClick={() => updateQuantity(item.cartKey, 0)}
+                        className='w-9 h-9 flex items-center justify-center rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-all'
+                      >
+                        <i className='ri-delete-bin-line text-xl'></i>
+                      </button>
+                    </div>
                   </div>
                 ) : null
               })
@@ -358,26 +397,26 @@ const Cart = () => {
             {/* RIGHT - Order Summary (fixed width, sticky) */}
             <div className='w-full lg:w-[380px] flex-shrink-0 sticky top-24'>
               <div className='bg-white rounded-2xl border border-neutral-200 shadow-lg p-7'>
-              <div className='flex items-center gap-2.5 mb-7 pb-5 border-b border-neutral-150'>
-                <div className='w-10 h-10 bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg flex items-center justify-center'>
-                  <i className='ri-bill-line text-rose-600'></i>
+                <div className='flex items-center gap-2.5 mb-7 pb-5 border-b border-neutral-150'>
+                  <div className='w-10 h-10 bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg flex items-center justify-center'>
+                    <i className='ri-bill-line text-rose-600'></i>
+                  </div>
+                  <h3 className='text-2xl font-semibold text-neutral-900'>Summary</h3>
                 </div>
-                <h3 className='text-2xl font-semibold text-neutral-900'>Summary</h3>
-              </div>
-              <CartTotal />
-              <button
-                onClick={handleCheckoutClick}
-                className='w-full bg-gradient-to-r from-rose-600 to-rose-700 text-white py-4 rounded-xl font-semibold hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-xl hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2 text-base active:scale-95'
-              >
-                <i className='ri-lock-line text-lg'></i>
-                Proceed to Checkout
-              </button>
-              <button
-                onClick={() => navigate('/collection')}
-                className='w-full mt-3 py-3.5 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors rounded-lg text-center border border-rose-200'
-              >
-                ← Continue Shopping
-              </button>
+                <CartTotal />
+                <button
+                  onClick={handleCheckoutClick}
+                  className='w-full bg-gradient-to-r from-rose-600 to-rose-700 text-white py-4 rounded-xl font-semibold hover:from-rose-700 hover:to-rose-800 transition-all hover:shadow-xl hover:-translate-y-0.5 mt-8 flex items-center justify-center gap-2 text-base active:scale-95'
+                >
+                  <i className='ri-lock-line text-lg'></i>
+                  Proceed to Checkout
+                </button>
+                <button
+                  onClick={() => navigate('/collection')}
+                  className='w-full mt-3 py-3.5 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors rounded-lg text-center border border-rose-200'
+                >
+                  ← Continue Shopping
+                </button>
               </div>
             </div>
           </div>

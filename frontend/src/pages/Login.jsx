@@ -4,6 +4,20 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'
 
+// API endpoints
+const API_ENDPOINTS = {
+  FORGOT_PASSWORD: '/api/user/forgot-password',
+  REGISTER: '/api/user/register',
+  LOGIN: '/api/user/login',
+  GOOGLE_LOGIN: '/api/user/google-login'
+};
+
+const ERROR_MESSAGES = {
+  SESSION_EXPIRED: 'Session expired. Please login again.',
+  GOOGLE_SIGNIN_FAILED: 'Google sign-in was cancelled or failed.',
+  GOOGLE_SIGNIN_SUCCESS: 'Signed in with Google!'
+};
+
 const Login = () => {
   const [currentState, setCurrentState] = useState('Login');
   const [loading, setLoading] = useState(false);
@@ -19,7 +33,7 @@ const Login = () => {
     setLoading(true);
     try {
       if (currentState === 'Forgot') {
-        const response = await axios.post(backendUrl + '/api/user/forgot-password', { email })
+        const response = await axios.post(backendUrl + API_ENDPOINTS.FORGOT_PASSWORD, { email })
         if (response.data.success) {
           setForgotSent(true)
         } else {
@@ -29,7 +43,7 @@ const Login = () => {
       }
 
       if (currentState === 'Sign Up') {
-        const response = await axios.post(backendUrl + '/api/user/register', { name, email, password })
+        const response = await axios.post(backendUrl + API_ENDPOINTS.REGISTER, { name, email, password })
         if (response.data.success) {
           const newToken = response.data.token
           localStorage.setItem('token', newToken)
@@ -41,7 +55,7 @@ const Login = () => {
           toast.error(response.data.message)
         }
       } else {
-        const response = await axios.post(backendUrl + '/api/user/login', { email, password })
+        const response = await axios.post(backendUrl + API_ENDPOINTS.LOGIN, { email, password })
         if (response.data.success) {
           const newToken = response.data.token
           localStorage.setItem('token', newToken)
@@ -54,7 +68,6 @@ const Login = () => {
         }
       }
     } catch (error) {
-      console.error('Login/Registration error:', error)
       toast.error(error.message)
     } finally {
       setLoading(false);
@@ -64,7 +77,7 @@ const Login = () => {
   // ── Google OAuth handler ──────────────────────────────────────────
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const response = await axios.post(backendUrl + '/api/user/google-login', {
+      const response = await axios.post(backendUrl + API_ENDPOINTS.GOOGLE_LOGIN, {
         credential: credentialResponse.credential
       })
       if (response.data.success) {
@@ -74,18 +87,17 @@ const Login = () => {
           await syncCartToDatabase(cartItems, newToken)
         }
         setToken(newToken)
-        toast.success('Signed in with Google!')
+        toast.success(ERROR_MESSAGES.GOOGLE_SIGNIN_SUCCESS)
       } else {
         toast.error(response.data.message)
       }
     } catch (error) {
-      console.error('Google login error:', error)
       toast.error('Google sign-in failed. Please try again.')
     }
   }
 
   const handleGoogleError = () => {
-    toast.error('Google sign-in was cancelled or failed.')
+    toast.error(ERROR_MESSAGES.GOOGLE_SIGNIN_FAILED)
   }
 
   useEffect(() => {

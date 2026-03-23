@@ -40,6 +40,7 @@ const RecentlyViewed = ({ excludeProductId }) => {
             <ProductItem 
               key={item._id} 
               id={item._id} 
+              slug={item.slug}
               name={item.name} 
               price={item.retailPrice || item.price} 
               wholesalePrice={item.wholesalePrice}

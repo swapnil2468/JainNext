@@ -121,7 +121,11 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
         setHasMore(res.data.pagination?.hasMore || false);
         setTotalReviews(res.data.pagination?.totalReviews || 0);
       }
-    } catch (err) { console.error(err); } finally { setLoadingMore(false); }
+    } catch (err) { 
+      // Silent error handling
+    } finally { 
+      setLoadingMore(false); 
+    }
   };
 
   const fetchUserData = async () => {
@@ -132,7 +136,9 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
         const rr = await axios.post(backendUrl + '/api/review/user', { productId, userId: res.data.user._id }, { headers: { token } });
         if (rr.data.success && rr.data.review) setUserReview(rr.data.review);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      // Silent error handling
+    }
   };
 
   const handleImageChange = (idx, file) => setImages(prev => { const a = [...prev]; a[idx] = file; return a; });
@@ -150,7 +156,9 @@ const ReviewSection = ({ productId, token, onReviewChange }) => {
       try {
         const res = await axios.post(backendUrl + '/api/review/upload-images', fd, { headers: { 'Content-Type': 'multipart/form-data', token } });
         if (res.data.success) uploadedImages = res.data.urls;
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+        // Silent error handling for upload
+      }
     }
     const res = await axios.post(backendUrl + '/api/review/add', {
       productId, userName: userData.name,

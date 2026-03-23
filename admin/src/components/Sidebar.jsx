@@ -71,11 +71,6 @@ const Sidebar = ({ setToken }) => {
           <p className='text-sm'>Wholesale Accounts</p>
         </NavLink>
 
-        <div className='flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer'>
-          <span className='text-lg'>⚙️</span>
-          <p className='text-sm'>Settings</p>
-        </div>
-
       </div>
 
       {/* User Profile Section with Dropdown Menu */}
@@ -97,22 +92,8 @@ const Sidebar = ({ setToken }) => {
         {showMenu && (
           <div className='absolute bottom-16 left-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50'>
             <button 
-              onClick={() => { setShowMenu(false); }}
-              className='w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 border-b border-gray-200'
-            >
-              <span>👤</span>
-              <p className='text-sm'>Profile</p>
-            </button>
-            <button 
-              onClick={() => { setShowMenu(false); }}
-              className='w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50'
-            >
-              <span>⚙️</span>
-              <p className='text-sm'>Settings</p>
-            </button>
-            <button 
               onClick={() => { setShowMenu(false); setToken(''); }}
-              className='w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 border-t border-gray-200'
+              className='w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50'
             >
               <span>🚪</span>
               <p className='text-sm font-medium'>Logout</p>

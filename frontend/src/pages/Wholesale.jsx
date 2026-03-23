@@ -4,6 +4,15 @@ import Title from '../components/Title'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
+// API endpoints
+const API_ENDPOINTS = {
+  USER_APPLY_WHOLESALE: '/api/user/apply-wholesale'
+};
+
+const ERROR_MESSAGES = {
+  NOT_LOGGED_IN: 'Please login to apply for wholesale'
+};
+
 const Wholesale = () => {
   const { backendUrl, token, navigate, userProfile } = useContext(ShopContext);
   const [wholesaleFormData, setWholesaleFormData] = useState({
@@ -22,7 +31,7 @@ const Wholesale = () => {
     e.preventDefault();
 
     if (!token) {
-      toast.error('Please login to apply for wholesale');
+      toast.error(ERROR_MESSAGES.NOT_LOGGED_IN);
       navigate('/login');
       return;
     }
@@ -31,7 +40,7 @@ const Wholesale = () => {
 
     try {
       const response = await axios.post(
-        backendUrl + '/api/user/apply-wholesale',
+        backendUrl + API_ENDPOINTS.USER_APPLY_WHOLESALE,
         wholesaleFormData,
         { headers: { token } }
       );
@@ -45,7 +54,6 @@ const Wholesale = () => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error applying for wholesale:', error);
       toast.error(error.message);
     } finally {
       setSubmitting(false);

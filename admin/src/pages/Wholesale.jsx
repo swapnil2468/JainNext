@@ -27,7 +27,6 @@ const Wholesale = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error fetching wholesale users:', error);
       toast.error(error.message);
     } finally {
       setLoading(false);
@@ -55,7 +54,6 @@ const Wholesale = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error approving wholesale:', error);
       toast.error(error.message);
     }
   };
@@ -75,7 +73,6 @@ const Wholesale = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error revoking wholesale:', error);
       toast.error(error.message);
     }
   };
@@ -95,7 +92,6 @@ const Wholesale = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error granting wholesale access:', error);
       toast.error(error.message);
     }
   };
@@ -115,7 +111,6 @@ const Wholesale = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error removing wholesaler:', error);
       toast.error(error.message);
     }
   };
@@ -135,7 +130,6 @@ const Wholesale = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error('Error rejecting application:', error);
       toast.error(error.message);
     }
   };

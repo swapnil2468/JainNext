@@ -8,7 +8,7 @@ const Navbar = () => {
   const [visible, setVisible] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
-  const {getCartCount, setShowSearch, navigate, token, logout, setSelectedCategory, setSelectedSubCategory} = useContext(ShopContext)
+  const {getCartCount, setShowSearch, navigate, token, logout, setSelectedCategory} = useContext(ShopContext)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,12 +19,16 @@ const Navbar = () => {
   }, [])
 
   const categories = [
-    { name:"LED String Lights", subs:["Pixel String Lights","Still/Static String Lights","Multi-Color String Lights","Remote-Control String Lights"]},
-    { name:"Decorative Lights", subs:["Festival Motif Lights","Shape/Novelty Lights","Themed Decorative Lights","Hanging Decorative Lights"]},
-    { name:"Curtain & Net Lights", subs:["Curtain Lights","Net/Jaal Lights","Waterfall Lights","Leaf/Pattern Curtain Lights"]},
-    { name:"Strip & Rope Lights", subs:["LED Strip Lights","Magic/RGB Strip Lights","Neon Rope Lights"]},
-    { name:"Flood & Outdoor Lights", subs:["Flood Lights","Lens Flood Lights","Sheet Flood Lights","Outdoor Waterproof Lights"]},
-    { name:"Festival & Patriotic Lights", subs:["Tricolor Theme Lights","Festival Special Lights","Religious Theme Lights"]}
+    "String Lights",
+    "Waterfalls Lights",
+    "SMD Lights",
+    "Strip Lights",
+    "Par & DJ Lights",
+    "Flood & Outdoor Lights",
+    "Decorative Lighting",
+    "Neon Sign Lights",
+    "Alluminium Profile",
+    "Power Accessories"
   ]
 
   return (
@@ -56,8 +60,9 @@ const Navbar = () => {
 
           {/* COLLECTION */}
           <div className='relative group' style={{ paddingBottom: '8px', marginBottom: '-8px' }}>
-            <NavLink to='/collection' className={({isActive}) => isActive ? 'text-sm font-medium text-rose-700 relative' : 'text-sm font-medium text-neutral-700 hover:text-rose-700 transition-colors duration-200 relative'}>
+            <NavLink to='/collection' onClick={() => setSelectedCategory([])} className={({isActive}) => isActive ? 'text-sm font-medium text-rose-700 relative flex items-center gap-1.5' : 'text-sm font-medium text-neutral-700 hover:text-rose-700 transition-colors duration-200 relative flex items-center gap-1.5'}>
               Collection
+              <i className='ri-arrow-down-s-line text-xs group-hover:rotate-180 transition-transform duration-300'></i>
               <span className='absolute -bottom-1 left-0 w-0 h-0.5 bg-rose-700 transition-all duration-300 group-hover:w-full'></span>
             </NavLink>
 
@@ -65,21 +70,16 @@ const Navbar = () => {
             <div className='absolute top-full left-0 w-full h-2 bg-transparent'></div>
 
             {/* MEGA MENU */}
-            <div className='absolute left-1/2 -translate-x-1/2 top-full w-screen bg-white shadow-xl hidden group-hover:block z-50 border-t'>
-              <div className='max-w-7xl mx-auto px-12 py-10 grid grid-cols-6 gap-10'>
+            <div className='absolute left-1/2 -translate-x-1/2 top-full w-64 bg-white shadow-xl hidden group-hover:block z-50 rounded-xl border border-neutral-200 mt-2'>
+              <div className='py-3'>
                 {categories.map((cat, i) => (
-                  <div key={i}>
-                    <p onClick={() => { setSelectedCategory([cat.name]); setSelectedSubCategory([]); navigate('/collection'); }} className='font-semibold text-gray-900 mb-4 cursor-pointer hover:text-rose-700'>
-                      {cat.name}
-                    </p>
-                    <div className='flex flex-col gap-2'>
-                      {cat.subs.map((sub, j) => (
-                        <p key={j} onClick={() => { setSelectedCategory([cat.name]); setSelectedSubCategory([sub]); navigate('/collection'); }} className='text-gray-500 cursor-pointer hover:text-black text-sm'>
-                          {sub}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
+                  <p
+                    key={i}
+                    onClick={() => { navigate(`/collection?category=${encodeURIComponent(cat)}`); }}
+                    className='px-4 py-3 font-medium text-gray-900 cursor-pointer hover:text-rose-700 hover:bg-rose-50/40 transition-colors duration-200 text-sm'
+                  >
+                    {cat}
+                  </p>
                 ))}
               </div>
             </div>

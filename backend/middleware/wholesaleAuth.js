@@ -26,7 +26,6 @@ const requireWholesaleApproved = async (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error('Wholesale auth error:', error);
         res.json({ success: false, message: error.message });
     }
 }

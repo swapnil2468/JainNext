@@ -3,6 +3,25 @@ import productModel from "../models/productModel.js"
 import { getUserFromToken } from "../middleware/wholesaleAuth.js"
 import jwt from 'jsonwebtoken'
 
+// Slug generator for SEO-friendly URLs
+const generateSlug = async (name) => {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+
+  // Check if slug exists and make unique if needed
+  let slug = base
+  let count = 1
+  while (await productModel.findOne({ slug })) {
+    slug = `${base}-${count}`
+    count++
+  }
+  return slug
+}
+
 // Helper function to filter product prices based on user role
 // CRITICAL SECURITY: Never expose wholesale prices to unauthorized users
 const filterProductPricing = (product, user) => {
@@ -45,10 +64,8 @@ const deleteCloudinaryImage = async (imageUrl) => {
             const fullPublicId = pathAfterUpload.substring(0, pathAfterUpload.lastIndexOf('.'));
             
             await cloudinary.uploader.destroy(fullPublicId);
-            console.log(`Deleted image: ${fullPublicId}`);
         }
     } catch (error) {
-        console.error('Error deleting image from Cloudinary:', error);
     }
 };
 
@@ -56,7 +73,7 @@ const deleteCloudinaryImage = async (imageUrl) => {
 const addProduct = async (req, res) => {
     try {
 
-        const { name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock } = req.body
+        const { name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, bestseller, stock } = req.body
 
         const hasVariants = req.body.hasVariants === 'true'
         const variantTypes = hasVariants ? (JSON.parse(req.body.variantTypes || '[]')) : []
@@ -91,7 +108,7 @@ const addProduct = async (req, res) => {
                 // Legacy fields for backward compatibility
                 color: variant.color,
                 colorCode: variant.colorCode || '#000000',
-                price: variant.price ? Number(variant.price) : undefined,
+                price: variant.price ? Number(variant.price) : Number(retailPrice),
                 compareAtPrice: variant.compareAtPrice ? Number(variant.compareAtPrice) : undefined,
                 wholesalePrice: variant.wholesalePrice ? Number(variant.wholesalePrice) : undefined,
                 stock: Number(variant.stock) || 0,
@@ -158,13 +175,13 @@ const addProduct = async (req, res) => {
 
         const productData = {
             name,
+            slug: await generateSlug(name),
             description,
             category,
             retailPrice: Number(retailPrice),
             compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
             wholesalePrice: wholesalePrice ? Number(wholesalePrice) : undefined,
             minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
-            subCategory,
             bestseller: bestseller === "true" ? true : false,
             image: imagesUrl,
             date: Date.now(),
@@ -181,7 +198,7 @@ const addProduct = async (req, res) => {
         res.json({ success: true, message: "Product Added" })
 
     } catch (error) {
-        console.error('Error adding product:', error)
+
         res.json({ success: false, message: error.message })
     }
 }
@@ -223,7 +240,7 @@ const listProducts = async (req, res) => {
         res.json({success:true,products: filteredProducts})
 
     } catch (error) {
-        console.error('Error listing products:', error)
+
         res.json({ success: false, message: error.message })
     }
 }
@@ -245,7 +262,7 @@ const removeProduct = async (req, res) => {
         res.json({success:true,message:"Product Removed"})
 
     } catch (error) {
-        console.error('Error removing product:', error)
+
         res.json({ success: false, message: error.message })
     }
 }
@@ -255,7 +272,19 @@ const singleProduct = async (req, res) => {
     try {
         
         const { productId } = req.body
-        const product = await productModel.findById(productId)
+        
+        // Support both slug and _id lookups for backward compatibility
+        let product
+        const isMongoId = /^[a-f\d]{24}$/i.test(productId)
+        if (isMongoId) {
+            product = await productModel.findById(productId)
+        } else {
+            product = await productModel.findOne({ slug: productId })
+        }
+        
+        if (!product) {
+            return res.json({ success: false, message: 'Product not found' })
+        }
         
         // CRITICAL SECURITY: Filter pricing based on user role
         const { token } = req.headers;
@@ -278,7 +307,7 @@ const singleProduct = async (req, res) => {
             if (productObj.price && !productObj.retailPrice) {
                 productObj.retailPrice = productObj.price;
             }
-            console.log('Admin fetching product:', productObj.name, 'wholesalePrice:', productObj.wholesalePrice);
+            // Admin product fetch
             return res.json({success:true,product: productObj});
         }
         
@@ -289,7 +318,6 @@ const singleProduct = async (req, res) => {
         res.json({success:true,product: filteredProduct})
 
     } catch (error) {
-        console.error('Error fetching single product:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -297,19 +325,26 @@ const singleProduct = async (req, res) => {
 // function for update product
 const updateProduct = async (req, res) => {
     try {
-        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, subCategory, bestseller, stock, hasVariants } = req.body
+        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, bestseller, stock, hasVariants } = req.body
         const variantTypes = JSON.parse(req.body.variantTypes || '[]')
         
         let updateData = {
             name,
             description,
             category,
-            subCategory,
             bestseller: bestseller === "true" ? true : false,
             useCases: useCases || "",
             minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
             hasVariants: hasVariants === 'true' || hasVariants === true,
             variantTypes
+        }
+
+        // Regenerate slug if name changed
+        if (name) {
+            const existingProduct = await productModel.findById(productId)
+            if (existingProduct && existingProduct.name !== name) {
+                updateData.slug = await generateSlug(name)
+            }
         }
 
         // Handle variant vs non-variant mode
@@ -347,7 +382,7 @@ const updateProduct = async (req, res) => {
                         attributes,
                         color: variant.color,
                         colorCode: variant.colorCode || '#000000',
-                        price: variant.price ? Number(variant.price) : undefined,
+                        price: variant.price ? Number(variant.price) : Number(retailPrice),
                         compareAtPrice: variant.compareAtPrice ? Number(variant.compareAtPrice) : undefined,
                         wholesalePrice: variant.wholesalePrice ? Number(variant.wholesalePrice) : undefined,
                         stock: Number(variant.stock) || 0,
@@ -465,7 +500,6 @@ const updateProduct = async (req, res) => {
         res.json({ success: true, message: "Product Updated", product })
 
     } catch (error) {
-        console.error('Error updating product:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -495,7 +529,6 @@ const updateProductStatus = async (req, res) => {
         })
 
     } catch (error) {
-        console.error('Error updating product status:', error)
         res.json({ success: false, message: error.message })
     }
 }

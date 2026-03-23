@@ -6,7 +6,7 @@ import productModel from "../models/productModel.js"
 const addToCart = async (req,res) => {
     try {
         
-        const { userId, itemId, quantity, variantColor } = req.body
+        const { userId, itemId, quantity, variantColor, selectedAttributes } = req.body
 
         const product = await productModel.findById(itemId);
         if (!product) {
@@ -19,8 +19,18 @@ const addToCart = async (req,res) => {
         }
         let cartData = await userData.cartData;
 
-        // Build cart key — include variant color if provided
-        const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+        // Build cart key - support both new and old variant formats
+        let cartKey = itemId
+        if (selectedAttributes && Object.keys(selectedAttributes).length > 0) {
+            // New format: encode all attributes (e.g., "color:Red::length:10m")
+            const attrStrings = Object.entries(selectedAttributes)
+                .map(([type, value]) => `${type}:${value}`)
+                .join('::')
+            cartKey = `${itemId}__${attrStrings}`
+        } else if (variantColor) {
+            // Backward compatibility: old format with just color
+            cartKey = `${itemId}__${variantColor}`
+        }
 
         const currentQty = cartData[cartKey] || 0;
         const addQty = quantity || 1;
@@ -38,7 +48,6 @@ const addToCart = async (req,res) => {
         res.json({ success: true, message: "Added To Cart" })
 
     } catch (error) {
-        console.error('Error adding to cart:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -47,7 +56,7 @@ const addToCart = async (req,res) => {
 const updateCart = async (req,res) => {
     try {
         
-        const { userId, itemId, quantity, variantColor } = req.body
+        const { userId, itemId, quantity, variantColor, selectedAttributes } = req.body
 
         // Validate quantity bounds
         if (quantity === undefined || quantity === null || quantity < 0 || quantity > 999) {
@@ -60,8 +69,18 @@ const updateCart = async (req,res) => {
         }
         let cartData = await userData.cartData;
 
-        // Build cart key — include variant color if provided
-        const cartKey = variantColor ? `${itemId}__${variantColor}` : itemId
+        // Build cart key - support both new and old variant formats
+        let cartKey = itemId
+        if (selectedAttributes && Object.keys(selectedAttributes).length > 0) {
+            // New format: encode all attributes (e.g., "color:Red::length:10m")
+            const attrStrings = Object.entries(selectedAttributes)
+                .map(([type, value]) => `${type}:${value}`)
+                .join('::')
+            cartKey = `${itemId}__${attrStrings}`
+        } else if (variantColor) {
+            // Backward compatibility: old format with just color
+            cartKey = `${itemId}__${variantColor}`
+        }
 
         if (quantity === 0) {
             delete cartData[cartKey]; // Remove entry instead of keeping a 0
@@ -73,7 +92,6 @@ const updateCart = async (req,res) => {
         res.json({ success: true, message: "Cart Updated" })
 
     } catch (error) {
-        console.error('Error updating cart:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -95,7 +113,6 @@ const getUserCart = async (req,res) => {
         res.json({ success: true, cartData })
 
     } catch (error) {
-        console.error('Error fetching user cart:', error)
         res.json({ success: false, message: error.message })
     }
 

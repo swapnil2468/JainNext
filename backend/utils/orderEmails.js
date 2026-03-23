@@ -95,11 +95,14 @@ export const sendOrderConfirmationEmail = async (order, customerEmail, customerN
         await createTransporter().sendMail({
             from: `"Jainnext" <${process.env.EMAIL_USER}>`,
             to: customerEmail,
-            subject: `Order Confirmed – ${orderId(order._id).replace(/<[^>]+>/g, '')}`,
+            subject: `Order #${order._id.toString().slice(-8).toUpperCase()}`,
             html,
+            headers: {
+                'Message-ID': `<order-${order._id}@jainnext.in>`,
+                'X-Priority': '3',
+            },
         })
     } catch (err) {
-        console.error('Failed to send order confirmation email:', err.message)
     }
 }
 
@@ -131,11 +134,14 @@ export const sendAdminNewOrderEmail = async (order, customerName, customerEmail)
         await createTransporter().sendMail({
             from: `"Jainnext Orders" <${process.env.EMAIL_USER}>`,
             to: process.env.ADMIN_EMAIL,
-            subject: `New Order ${orderId(order._id).replace(/<[^>]+>/g, '')} – ${formatCurrency(order.amount)}`,
+            subject: `Order #${order._id.toString().slice(-8).toUpperCase()} – New Order – ${formatCurrency(order.amount)}`,
             html,
+            headers: {
+                'Message-ID': `<order-${order._id}-admin@jainnext.in>`,
+                'X-Priority': '2',
+            },
         })
     } catch (err) {
-        console.error('Failed to send admin new-order email:', err.message)
     }
 }
 
@@ -145,25 +151,25 @@ export const sendAdminNewOrderEmail = async (order, customerName, customerEmail)
  */
 const STATUS_CONTENT = {
     Shipped: {
-        subject: 'Your order has been shipped! 🚚',
+        subject: 'Shipped',
         headline: 'Your Order is on its Way!',
         body: (tracking) => `Your order has been dispatched.${tracking ? ` Your tracking number is <strong>${tracking}</strong>.` : ''} You'll receive it soon!`,
         color: '#ea580c',
     },
     'Out for Delivery': {
-        subject: 'Out for delivery today! 📦',
+        subject: 'Out for Delivery',
         headline: 'Out for Delivery',
         body: () => 'Great news! Your order is out for delivery today. Please keep your phone handy.',
         color: '#7c3aed',
     },
     Delivered: {
-        subject: 'Order delivered! ✅',
+        subject: 'Delivered',
         headline: 'Order Delivered Successfully',
         body: () => 'Your order has been delivered. We hope you love your new lights! If you have any issues, feel free to contact us.',
         color: '#16a34a',
     },
     Cancelled: {
-        subject: 'Order cancelled',
+        subject: 'Cancelled',
         headline: 'Order Cancelled',
         body: () => 'Your order has been cancelled. If you did not request this cancellation or have questions, please contact our support.',
         color: '#dc2626',
@@ -198,10 +204,15 @@ export const sendOrderStatusEmail = async (order, customerEmail, customerName, n
         await createTransporter().sendMail({
             from: `"Jainnext" <${process.env.EMAIL_USER}>`,
             to: customerEmail,
-            subject: content.subject,
+            subject: `Order #${order._id.toString().slice(-8).toUpperCase()}`,
             html,
+            headers: {
+                'Message-ID': `<order-${order._id}-${newStatus}@jainnext.in>`,
+                'In-Reply-To': `<order-${order._id}@jainnext.in>`,
+                'References': `<order-${order._id}@jainnext.in>`,
+                'X-Priority': '3',
+            },
         })
     } catch (err) {
-        console.error(`Failed to send ${newStatus} status email:`, err.message)
     }
 }

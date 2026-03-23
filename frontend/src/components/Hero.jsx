@@ -40,12 +40,19 @@ const Hero = () => {
                 <span className="relative z-10">Explore Collection</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-rose-800 to-rose-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
-              <a
-                href="#learn"
+              <button
+                onClick={() => {
+                  setTimeout(() => {
+                    const element = document.getElementById('learn')
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                  }, 50)
+                }}
                 className="px-8 py-4 bg-white text-neutral-900 text-sm font-medium rounded-full border border-rose-200 hover:border-rose-300 hover:bg-rose-50/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap"
               >
                 Learn More
-              </a>
+              </button>
             </div>
             
             {/* Trust Indicators */}

@@ -66,7 +66,7 @@ const ReviewCard = ({ review }) => {
             {review.images.slice(0, 4).map((img, idx) => (
               <button key={idx} onClick={() => setExpandedImg(img)}
                 className="w-16 h-16 rounded-xl overflow-hidden border border-neutral-100 hover:border-neutral-300 hover:scale-105 transition-all duration-200 flex-shrink-0">
-                <img src={img} alt="review" className="w-full h-full object-cover" />
+                <img src={img} alt="review" className="w-full h-full object-cover" loading='lazy' />
               </button>
             ))}
           </div>

@@ -3,7 +3,7 @@ import { ShopContext } from '../context/ShopContext'
 import Title from './Title';
 import ProductItem from './ProductItem';
 
-const RelatedProducts = ({category,subCategory,currentProductId}) => {
+const RelatedProducts = ({category, currentProductId}) => {
 
     const { products } = useContext(ShopContext);
     const [related,setRelated] = useState([]);
@@ -14,31 +14,16 @@ const RelatedProducts = ({category,subCategory,currentProductId}) => {
             
             let productsCopy = products.slice();
             
-            // First priority: Same subcategory (excluding current product)
-            let sameSubCategory = productsCopy.filter((item) => 
-                category === item.category && 
-                subCategory === item.subCategory &&
+            // Get products from same category (excluding current product)
+            let sameCategory = productsCopy.filter((item) => 
+                category === item.category &&
                 item._id !== currentProductId
             );
             
-            // If we have 5 or more from same subcategory, use those
-            if (sameSubCategory.length >= 5) {
-                setRelated(sameSubCategory.slice(0, 5));
-            } else {
-                // Fill remaining with same category products
-                let sameCategory = productsCopy.filter((item) => 
-                    category === item.category &&
-                    item._id !== currentProductId &&
-                    !sameSubCategory.includes(item) // Don't duplicate
-                );
-                
-                // Combine: subcategory first, then category
-                let combined = [...sameSubCategory, ...sameCategory];
-                setRelated(combined.slice(0, 5));
-            }
+            setRelated(sameCategory.slice(0, 5));
         }
         
-    },[products, currentProductId, category, subCategory])
+    },[products, currentProductId, category])
 
   return (
     <div className='my-16'>
@@ -56,6 +41,7 @@ const RelatedProducts = ({category,subCategory,currentProductId}) => {
             <ProductItem
               key={index}
               id={item._id}
+              slug={item.slug}
               name={item.name}
               price={item.retailPrice || item.price}
               wholesalePrice={item.wholesalePrice}

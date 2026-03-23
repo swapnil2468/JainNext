@@ -21,7 +21,6 @@ const Login = ({setToken}) => {
             }
              
         } catch (error) {
-            console.error('Admin login error:', error);
             toast.error(error.message)
         } finally {
             setLoading(false);

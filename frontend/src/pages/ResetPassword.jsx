@@ -4,6 +4,21 @@ import { ShopContext } from '../context/ShopContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
+// API endpoints
+const API_ENDPOINTS = {
+  RESET_PASSWORD: '/api/user/reset-password'
+};
+
+// Validation messages
+const VALIDATION_MESSAGES = {
+  PASSWORD_MIN_LENGTH: 'Password must be at least 8 characters',
+  PASSWORD_MISMATCH: 'Passwords do not match'
+};
+
+const CONSTRAINTS = {
+  PASSWORD_MIN_LENGTH: 8
+};
+
 const ResetPassword = () => {
   const { backendUrl, navigate } = useContext(ShopContext)
   const [searchParams] = useSearchParams()
@@ -23,17 +38,17 @@ const ResetPassword = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    if (password.length < 8) {
-      toast.error('Password must be at least 8 characters')
+    if (password.length < CONSTRAINTS.PASSWORD_MIN_LENGTH) {
+      toast.error(VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH)
       return
     }
     if (password !== confirm) {
-      toast.error('Passwords do not match')
+      toast.error(VALIDATION_MESSAGES.PASSWORD_MISMATCH)
       return
     }
     setLoading(true)
     try {
-      const response = await axios.post(backendUrl + '/api/user/reset-password', { token, password })
+      const response = await axios.post(backendUrl + API_ENDPOINTS.RESET_PASSWORD, { token, password })
       if (response.data.success) {
         setDone(true)
       } else {

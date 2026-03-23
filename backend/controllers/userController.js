@@ -36,7 +36,6 @@ const loginUser = async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Error in user login:', error);
         res.json({ success: false, message: error.message })
     }
 }
@@ -78,7 +77,6 @@ const registerUser = async (req, res) => {
         res.json({ success: true, token })
 
     } catch (error) {
-        console.error('Error in user registration:', error);
         res.json({ success: false, message: error.message })
     }
 }
@@ -97,7 +95,6 @@ const adminLogin = async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Error in admin login:', error);
         res.json({ success: false, message: error.message })
     }
 }
@@ -114,7 +111,6 @@ const getUserProfile = async (req, res) => {
 
         res.json({ success: true, user })
     } catch (error) {
-        console.error('Error fetching user profile:', error);
         res.json({ success: false, message: error.message })
     }
 }
@@ -152,7 +148,6 @@ const applyForWholesale = async (req, res) => {
 
         res.json({ success: true, message: "Wholesale application submitted. Awaiting admin approval." });
     } catch (error) {
-        console.error('Error applying for wholesale:', error);
         res.json({ success: false, message: error.message });
     }
 }
@@ -163,7 +158,6 @@ const getWholesaleUsers = async (req, res) => {
         const wholesaleUsers = await userModel.find({ role: 'wholesale' }).select('-password');
         res.json({ success: true, users: wholesaleUsers });
     } catch (error) {
-        console.error('Error fetching wholesale users:', error);
         res.json({ success: false, message: error.message });
     }
 }
@@ -195,7 +189,6 @@ const updateWholesaleStatus = async (req, res) => {
         
         res.json({ success: true, message: `Wholesale application ${status}` });
     } catch (error) {
-        console.error('Error updating wholesale status:', error);
         res.json({ success: false, message: error.message });
     }
 }
@@ -228,7 +221,6 @@ const removeWholesaleApplication = async (req, res) => {
 
         res.json({ success: true, message: 'Wholesaler removed successfully' });
     } catch (error) {
-        console.error('Error removing wholesale application:', error);
         res.json({ success: false, message: error.message });
     }
 }
@@ -287,7 +279,6 @@ const forgotPassword = async (req, res) => {
 
         res.json({ success: true, message: 'If that email is registered, a reset link has been sent.' })
     } catch (error) {
-        console.error('Error in forgotPassword:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -314,7 +305,6 @@ const resetPassword = async (req, res) => {
 
         res.json({ success: true, message: 'Password updated successfully! You can now log in.' })
     } catch (error) {
-        console.error('Error in resetPassword:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -360,7 +350,6 @@ const googleLogin = async (req, res) => {
         res.json({ success: true, token })
 
     } catch (error) {
-        console.error('Error in Google login:', error)
         res.json({ success: false, message: 'Google authentication failed' })
     }
 }

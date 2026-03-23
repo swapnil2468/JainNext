@@ -20,8 +20,7 @@ const Add = ({token}) => {
    const [wholesalePrice, setWholesalePrice] = useState("");
    const [minimumWholesaleQuantity, setMinimumWholesaleQuantity] = useState("10");
    const [stock, setStock] = useState("");
-   const [category, setCategory] = useState("LED String Lights");
-   const [subCategory, setSubCategory] = useState("Pixel String Lights");
+   const [category, setCategory] = useState("String Lights");
    const [bestseller, setBestseller] = useState(false);
    const [activeTab, setActiveTab] = useState("description");
    const [trackInventory, setTrackInventory] = useState(true);
@@ -109,24 +108,20 @@ const Add = ({token}) => {
    };
 
    // Category and Subcategory Mapping
-   const categoryOptions = {
-     "LED String Lights": ["Pixel String Lights", "Still/Static String Lights", "Multi-Color String Lights", "Single-Color String Lights", "Remote-Control String Lights"],
-     "Decorative Lights": ["Festival Motif Lights", "Shape/Novelty Lights", "Themed Decorative Lights", "Hanging Decorative Lights"],
-     "Curtain & Net Lights": ["Curtain Lights", "Net/Jaal Lights", "Waterfall Lights", "Leaf/Pattern Curtain Lights"],
-     "Strip & Rope Lights": ["LED Strip Lights", "Magic/RGB Strip Lights", "Neon Rope Lights", "DC Powered Strips"],
-     "SMD & Module Lights": ["SMD Running Lights", "SMD Static Lights", "LED Modules/Leads"],
-     "Flood & Outdoor Lights": ["Flood Lights", "Lens Flood Lights", "Sheet Flood Lights", "Outdoor Waterproof Lights"],
-     "Stage & Effect Lights": ["PAR Lights", "Laser Lights", "Spark/Firework Effect Lights", "Rotating Effect Lights"],
-     "Festival & Patriotic Lights": ["Tricolor Theme Lights", "Festival Special Lights", "Religious Theme Lights"],
-     "Power & Accessories": ["Adapters/Drivers", "Controllers/Remotes", "Connectors & Jointers", "Mounting Profiles"],
-     "Specialty & Novelty Lighting": ["Sensor Lights", "Battery/Cork Lights", "Bluetooth/Music Lights", "Designer Lamps"]
-   }
+   const categories = [
+     "String Lights",
+     "Waterfalls Lights",
+     "SMD Lights",
+     "Strip Lights",
+     "Par & DJ Lights",
+     "Flood & Outdoor Lights",
+     "Decorative Lighting",
+     "Neon Sign Lights",
+     "Alluminium Profile",
+     "Power Accessories"
+   ]
 
-   const handleCategoryChange = (e) => {
-     const selectedCategory = e.target.value;
-     setCategory(selectedCategory);
-     setSubCategory(categoryOptions[selectedCategory][0]);
-   }
+
 
    const handleSpecificationChange = (e) => {
      const { name, value } = e.target;
@@ -345,7 +340,6 @@ const Add = ({token}) => {
         formData.append("stock", 0)
       }
       formData.append("category",category)
-      formData.append("subCategory",subCategory)
       formData.append("bestseller",bestseller)
       formData.append("status",status)
 
@@ -495,7 +489,6 @@ const Add = ({token}) => {
       }
 
     } catch (error) {
-      console.error('Error adding product:', error);
       toast.error(error.message)
     } finally {
       setLoading(false);
@@ -910,23 +903,13 @@ const Add = ({token}) => {
               <input onChange={(e)=>setName(e.target.value)} value={name} className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500' type="text" placeholder='e.g. Modern Brass Pendant Light' required/>
             </div>
 
-            <div className='grid grid-cols-2 gap-4 mb-4'>
-              <div>
-                <label className='block text-sm font-medium text-gray-900 mb-2'>Category</label>
-                <select onChange={(e) => { setCategory(e.target.value); setSubCategory(categoryOptions[e.target.value][0]); }} value={category} className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'>
-                  {Object.keys(categoryOptions).map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className='block text-sm font-medium text-gray-900 mb-2'>Sub Category</label>
-                <select onChange={(e) => setSubCategory(e.target.value)} value={subCategory} className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'>
-                  {categoryOptions[category].map((subCat) => (
-                    <option key={subCat} value={subCat}>{subCat}</option>
-                  ))}
-                </select>
-              </div>
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Category</label>
+              <select onChange={(e) => setCategory(e.target.value)} value={category} className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
 
             {/* Tabs for Description/Use Cases */}

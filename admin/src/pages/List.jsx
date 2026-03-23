@@ -68,7 +68,6 @@ const List = ({ token }) => {
       }
 
     } catch (error) {
-      console.error('Error fetching product list:', error)
       toast.error(error.message)
     }
   }
@@ -89,7 +88,6 @@ const List = ({ token }) => {
         toast.error(response.data.message)
       }
     } catch (error) {
-      console.error('Error removing product:', error)
       toast.error(error.message)
     } finally {
       setShowConfirm(false);
@@ -144,7 +142,6 @@ const List = ({ token }) => {
         toast.error(response.data.message)
       }
     } catch (error) {
-      console.error('Error updating status:', error)
       toast.error(error.message)
     }
   }

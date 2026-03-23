@@ -8,12 +8,11 @@ import ProductItem from '../components/ProductItem';
 const Collection = () => {
 
   const [searchParams] = useSearchParams()
-  const { products, search, setSearch, showSearch, setShowSearch, selectedCategory, setSelectedCategory, selectedSubCategory, setSelectedSubCategory } = useContext(ShopContext);
+  const { products, search, setSearch, showSearch, setShowSearch, selectedCategory, setSelectedCategory } = useContext(ShopContext);
   const searchInputRef = useRef(null)
   const [showFilter,setShowFilter] = useState(false);
   const [filterProducts,setFilterProducts] = useState([]);
   const [category,setCategory] = useState([]);
-  const [subCategory,setSubCategory] = useState([]);
   const [sortType,setSortType] = useState('relavent')
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(5000);
@@ -46,7 +45,6 @@ const Collection = () => {
     const categoryParam = searchParams.get('category')
     if (categoryParam) {
       setCategory([categoryParam])
-      setSubCategory([])
     }
   }, [searchParams])
 
@@ -54,9 +52,8 @@ const Collection = () => {
   useEffect(() => {
     if (!searchParams.get('category')) {
       setCategory(selectedCategory);
-      setSubCategory(selectedSubCategory);
     }
-  }, [selectedCategory, selectedSubCategory, searchParams]);
+  }, [selectedCategory, searchParams]);
 
   // Auto-focus search input when showSearch is true
   useEffect(() => {
@@ -67,57 +64,31 @@ const Collection = () => {
     }
   }, [showSearch])
 
-  // Category to Subcategory Mapping
-  const categoryOptions = {
-    "LED String Lights": ["Pixel String Lights", "Still/Static String Lights", "Multi-Color String Lights", "Single-Color String Lights", "Remote-Control String Lights"],
-    "Decorative Lights": ["Festival Motif Lights", "Shape/Novelty Lights", "Themed Decorative Lights", "Hanging Decorative Lights"],
-    "Curtain & Net Lights": ["Curtain Lights", "Net/Jaal Lights", "Waterfall Lights", "Leaf/Pattern Curtain Lights"],
-    "Strip & Rope Lights": ["LED Strip Lights", "Magic/RGB Strip Lights", "Neon Rope Lights", "DC Powered Strips"],
-    "SMD & Module Lights": ["SMD Running Lights", "SMD Static Lights", "LED Modules/Leads"],
-    "Flood & Outdoor Lights": ["Flood Lights", "Lens Flood Lights", "Sheet Flood Lights", "Outdoor Waterproof Lights"],
-    "Stage & Effect Lights": ["PAR Lights", "Laser Lights", "Spark/Firework Effect Lights", "Rotating Effect Lights"],
-    "Festival & Patriotic Lights": ["Tricolor Theme Lights", "Festival Special Lights", "Religious Theme Lights"],
-    "Power & Accessories": ["Adapters/Drivers", "Controllers/Remotes", "Connectors & Jointers", "Mounting Profiles"],
-    "Specialty & Novelty Lighting": ["Sensor Lights", "Battery/Cork Lights", "Bluetooth/Music Lights", "Designer Lamps"]
-  }
+  // Categories
+  const categories = [
+    "String Lights",
+    "Waterfalls Lights",
+    "SMD Lights",
+    "Strip Lights",
+    "Par & DJ Lights",
+    "Flood & Outdoor Lights",
+    "Decorative Lighting",
+    "Neon Sign Lights",
+    "Alluminium Profile",
+    "Power Accessories"
+  ]
 
-  // Get available subcategories based on selected categories
-  const getAvailableSubCategories = () => {
-    if (category.length === 0) {
-      return [];
-    }
-    const available = new Set();
-    category.forEach(cat => {
-      if (categoryOptions[cat]) {
-        categoryOptions[cat].forEach(subCat => available.add(subCat));
-      }
-    });
-    return Array.from(available);
-  }
+
 
   const toggleCategory = (e) => {
 
     if (category.includes(e.target.value)) {
         setCategory(prev=> prev.filter(item => item !== e.target.value))
-        // Clear subcategories when unchecking all categories
-        if (category.length === 1) {
-          setSubCategory([])
-        }
     }
     else{
       setCategory(prev => [...prev,e.target.value])
     }
 
-  }
-
-  const toggleSubCategory = (e) => {
-
-    if (subCategory.includes(e.target.value)) {
-      setSubCategory(prev=> prev.filter(item => item !== e.target.value))
-    }
-    else{
-      setSubCategory(prev => [...prev,e.target.value])
-    }
   }
 
   const applyFilter = () => {
@@ -130,10 +101,6 @@ const Collection = () => {
 
     if (category.length > 0) {
       productsCopy = productsCopy.filter(item => category.includes(item.category));
-    }
-
-    if (subCategory.length > 0 ) {
-      productsCopy = productsCopy.filter(item => subCategory.includes(item.subCategory))
     }
 
     // Filter by price range
@@ -178,7 +145,7 @@ const Collection = () => {
   useEffect(()=>{
       applyFilter();
       setDisplayCount(20); // Reset to 20 when filters change
-  },[category,subCategory,search,showSearch,products,priceRange])
+  },[category,search,showSearch,products,priceRange])
 
   useEffect(()=>{
     sortProduct();
@@ -276,7 +243,6 @@ const Collection = () => {
           <button
             onClick={() => {
               setCategory([])
-              setSubCategory([])
               setPriceRange([minPrice, maxPrice])
               setMinInput(String(minPrice))
               setMaxInput(String(maxPrice))
@@ -290,123 +256,20 @@ const Collection = () => {
         <div className={`${showFilter ? '' :'hidden'} lg:block`}>
           <p className='text-sm font-semibold text-neutral-900 mb-4 uppercase tracking-wide'>Categories</p>
           <div className='flex flex-col gap-3'>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'LED String Lights'} checked={category.includes('LED String Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
+            {categories.map((cat) => (
+              <label key={cat} className='flex items-center gap-3 cursor-pointer group'>
+                <div className='relative'>
+                  <input type='checkbox' value={cat} checked={category.includes(cat)} onChange={toggleCategory} className='peer sr-only' />
+                  <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
+                    <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
+                  </div>
                 </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>LED String Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Decorative Lights'} checked={category.includes('Decorative Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Decorative Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Curtain & Net Lights'} checked={category.includes('Curtain & Net Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Curtain & Net Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Strip & Rope Lights'} checked={category.includes('Strip & Rope Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Strip & Rope Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'SMD & Module Lights'} checked={category.includes('SMD & Module Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>SMD & Module Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Flood & Outdoor Lights'} checked={category.includes('Flood & Outdoor Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Flood & Outdoor Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Stage & Effect Lights'} checked={category.includes('Stage & Effect Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Stage & Effect Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Festival & Patriotic Lights'} checked={category.includes('Festival & Patriotic Lights')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Festival & Patriotic Lights</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Power & Accessories'} checked={category.includes('Power & Accessories')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Power & Accessories</span>
-            </label>
-            <label className='flex items-center gap-3 cursor-pointer group'>
-              <div className='relative'>
-                <input type='checkbox' value={'Specialty & Novelty Lighting'} checked={category.includes('Specialty & Novelty Lighting')} onChange={toggleCategory} className='peer sr-only' />
-                <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                  <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                </div>
-              </div>
-              <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>Specialty & Novelty Lighting</span>
-            </label>
+                <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>{cat}</span>
+              </label>
+            ))}
           </div>
         </div>
-        {/* SubCategory Filter */}
-        {category.length > 0 && (
-          <div className={`${showFilter ? '' :'hidden'} lg:block pt-6 border-t border-neutral-100`}>
-            <p className='text-sm font-semibold text-neutral-900 mb-4 uppercase tracking-wide'>Type</p>
-            <div className='flex flex-col gap-3 max-h-60 overflow-y-auto pr-2 filter-scroll'>
-              {getAvailableSubCategories().map((subCat) => (
-                <label key={subCat} className='flex items-center gap-3 cursor-pointer group'>
-                  <div className='relative'>
-                    <input 
-                      type='checkbox' 
-                      value={subCat} 
-                      checked={subCategory.includes(subCat)}
-                      onChange={toggleSubCategory}
-                      className='peer sr-only'
-                    />
-                    <div className='w-5 h-5 border-2 border-neutral-300 rounded peer-checked:border-rose-600 peer-checked:bg-rose-600 transition-all flex items-center justify-center'>
-                      <i className='ri-check-line text-white text-xs opacity-0 peer-checked:opacity-100'></i>
-                    </div>
-                  </div>
-                  <span className='text-sm text-neutral-700 group-hover:text-neutral-900 transition-colors'>{subCat}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
+
         {/* Price Range Filter */}
         <div className={`${showFilter ? '' :'hidden'} lg:block pt-6 border-t border-neutral-100`}>
           <p className='text-sm font-semibold text-neutral-900 mb-4 uppercase tracking-wide'>Price Range</p>
@@ -582,6 +445,7 @@ const Collection = () => {
                   key={index}
                   name={item.name}
                   id={item._id}
+                  slug={item.slug}
                   price={displayPrice}
                   wholesalePrice={firstVariant?.wholesalePrice || item.wholesalePrice}
                   minimumWholesaleQuantity={item.minimumWholesaleQuantity}
@@ -614,7 +478,7 @@ const Collection = () => {
             <h3 className='text-2xl font-light text-neutral-900 mb-2'>No products found</h3>
             <p className='text-neutral-600 mb-6'>Try adjusting your filters to find what you're looking for</p>
             <button
-              onClick={() => { setCategory([]); setSubCategory([]); setPriceRange([minPrice, maxPrice]); }}
+              onClick={() => { setCategory([]); setPriceRange([minPrice, maxPrice]); }}
               className='px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-full font-medium hover:from-rose-700 hover:to-rose-800 transition-all'
             >
               Reset Filters

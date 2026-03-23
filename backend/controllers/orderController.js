@@ -4,10 +4,88 @@ import userModel from "../models/userModel.js";
 import razorpay from 'razorpay'
 import productModel from '../models/productModel.js'
 import { sendOrderConfirmationEmail, sendAdminNewOrderEmail, sendOrderStatusEmail } from '../utils/orderEmails.js'
+import { verifyPaymentSignature, sanitizePaymentResponse } from '../utils/paymentSecurity.js'
 
 // global variables
 const currency = 'inr'
 const deliveryCharge = 10
+
+// SECURITY: Helper to calculate total amount server-side to prevent fraud
+// This ensures the user cannot manipulate the order amount
+// Handles both variant and non-variant products with appropriate pricing
+const calculateOrderTotal = async (items, userRole, userApproved) => {
+    let totalAmount = 0;
+    
+    for (const item of items) {
+        const product = await productModel.findById(item._id);
+        if (!product) {
+            throw new Error(`Product ${item._id} not found`);
+        }
+        
+        let itemPrice;
+        let minWholesaleQty = product.minimumWholesaleQuantity || 10;
+        
+        // If item has variant, use variant pricing
+        if (item.selectedVariant && product.variants && product.variants.length > 0) {
+            // Helper to find variant by attributes (supports both old and new formats)
+            const findVariant = (variantString) => {
+                if (variantString.includes(':') && variantString.includes('::')) {
+                    const attributes = {}
+                    const pairs = variantString.split('::')
+                    pairs.forEach(pair => {
+                        const [type, value] = pair.split(':')
+                        if (type && value) attributes[type] = value
+                    })
+                    return product.variants.find(v => {
+                        for (const [type, value] of Object.entries(attributes)) {
+                            const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                            if (variantValue !== value) return false
+                        }
+                        return true
+                    })
+                }
+                return product.variants.find(v => v.color === variantString)
+            }
+            
+            const variant = findVariant(item.selectedVariant);
+            
+            if (variant) {
+                // Use variant price (variant-specific price takes priority)
+                itemPrice = variant.price || product.retailPrice || product.price;
+                
+                // Apply variant wholesale pricing if eligible
+                if (userRole === 'wholesale' && userApproved && variant.wholesalePrice && 
+                    item.quantity >= (variant.minimumWholesaleQuantity || minWholesaleQty)) {
+                    itemPrice = variant.wholesalePrice;
+                }
+            } else {
+                // Variant not found, fall back to product pricing
+                itemPrice = product.retailPrice || product.price;
+                
+                // Apply product wholesale pricing if eligible
+                if (userRole === 'wholesale' && userApproved && product.wholesalePrice && 
+                    item.quantity >= minWholesaleQty) {
+                    itemPrice = product.wholesalePrice;
+                }
+            }
+        } else {
+            // Non-variant product - use product level pricing
+            itemPrice = product.retailPrice || product.price;
+            
+            // Apply wholesale pricing if user is approved wholesale customer
+            if (userRole === 'wholesale' && userApproved && product.wholesalePrice && 
+                item.quantity >= minWholesaleQty) {
+                itemPrice = product.wholesalePrice;
+            }
+        }
+        
+        totalAmount += itemPrice * item.quantity;
+    }
+    
+    // Add delivery charge
+    totalAmount += deliveryCharge;
+    return totalAmount;
+};
 
 // Lazy-initialize Razorpay only when a payment is actually attempted
 // (avoids crashing the entire orders module if keys are not configured)
@@ -26,7 +104,21 @@ const placeOrder = async (req,res) => {
     
     try {
         
-        const { userId, items, amount, address} = req.body;
+        const { userId, items, address} = req.body;
+        
+        // SECURITY: Get user role for pricing validation
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.json({success: false, message: "User not found"});
+        }
+
+        // SECURITY: Recalculate amount on server to prevent fraud
+        let amount;
+        try {
+            amount = await calculateOrderTotal(items, user.role, user.isApproved);
+        } catch (error) {
+            return res.json({success: false, message: error.message});
+        }
 
         // Helper function to find variant by parsed attributes
         const findVariantByAttributes = (product, variantString) => {
@@ -143,7 +235,6 @@ const placeOrder = async (req,res) => {
         await userModel.findByIdAndUpdate(userId,{cartData:{}})
 
         // Send confirmation email to customer + alert to admin (fire-and-forget)
-        const user = await userModel.findById(userId).select('name email')
         if (user) {
             sendOrderConfirmationEmail(newOrder, user.email, user.name)
             sendAdminNewOrderEmail(newOrder, user.name, user.email)
@@ -153,7 +244,6 @@ const placeOrder = async (req,res) => {
 
 
     } catch (error) {
-        console.error('Error placing COD order:', error)
         res.json({success:false,message:error.message})
     }
 
@@ -163,7 +253,21 @@ const placeOrder = async (req,res) => {
 const placeOrderRazorpay = async (req,res) => {
     try {
         
-        const { userId, items, amount, address} = req.body
+        const { userId, items, address} = req.body
+        
+        // SECURITY: Get user role for pricing validation
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.json({success: false, message: "User not found"});
+        }
+
+        // SECURITY: Recalculate amount on server to prevent fraud
+        let amount;
+        try {
+            amount = await calculateOrderTotal(items, user.role, user.isApproved);
+        } catch (error) {
+            return res.json({success: false, message: error.message});
+        }
 
         // Helper function to find variant by parsed attributes (same as in placeOrder)
         const findVariantByAttributes = (product, variantString) => {
@@ -241,14 +345,12 @@ const placeOrderRazorpay = async (req,res) => {
 
         await getRazorpayInstance().orders.create(options, (error, order) => {
             if (error) {
-                console.error('Razorpay order creation error:', error)
                 return res.json({success:false, message: error})
             }
             res.json({success:true,order})
         })
 
     } catch (error) {
-        console.error('Error placing Razorpay order:', error)
         res.json({success:false,message:error.message})
     }
 }
@@ -256,126 +358,181 @@ const placeOrderRazorpay = async (req,res) => {
 const verifyRazorpay = async (req,res) => {
     try {
         
-        const { userId, razorpay_order_id  } = req.body
+        const { userId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
 
-        const orderInfo = await getRazorpayInstance().orders.fetch(razorpay_order_id)
-        if (orderInfo.status === 'paid') {
-            // Get order details to deduct stock
-            const order = await orderModel.findById(orderInfo.receipt);
+        // SECURITY: Validate all required fields
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Missing payment verification data' 
+            })
+        }
+
+        // SECURITY: Sanitize inputs to prevent injection
+        const sanitized = sanitizePaymentResponse({
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+        })
+
+        // SECURITY: CRITICAL - Verify payment signature
+        // This prevents fraudsters from faking payments without actual transaction
+        const isSignatureValid = verifyPaymentSignature(
+            sanitized.razorpay_order_id,
+            sanitized.razorpay_payment_id,
+            sanitized.razorpay_signature
+        )
+
+        if (!isSignatureValid) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Payment verification failed - Invalid signature. Fraudulent attempt detected.' 
+            })
+        }
+
+        // Signature is valid, now verify payment status with Razorpay
+        const orderInfo = await getRazorpayInstance().orders.fetch(sanitized.razorpay_order_id)
+        
+        if (!orderInfo) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Order not found in Razorpay system' 
+            })
+        }
+
+        if (orderInfo.status !== 'paid') {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Payment status is ${orderInfo.status}, not paid` 
+            })
+        }
+
+        // SECURITY: CRITICAL - Verify payment amount matches order amount
+        // Amount in Razorpay is stored in paise (1 rupee = 100 paise)
+        const order = await orderModel.findById(orderInfo.receipt);
+        if (!order) {
+            return res.json({success: false, message: "Order not found"});
+        }
+
+        const expectedAmountInPaise = Math.round(order.amount * 100);
+        if (orderInfo.amount !== expectedAmountInPaise) {
+            // Amount mismatch - cancel order immediately for security
+            await orderModel.findByIdAndDelete(orderInfo.receipt);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Payment amount mismatch. Expected ₹' + order.amount + ' but received ₹' + (orderInfo.amount / 100) + '. Order cancelled for security.' 
+            })
+        }
+
+        // Signature is valid and amount is correct - proceed with order fulfillment
+        
+        if (!order) {
+            return res.json({success: false, message: "Order not found"});
+        }
+
+        // Validate and deduct stock for each item
+        for (const item of order.items) {
+            const product = await productModel.findById(item._id);
             
-            if (!order) {
-                return res.json({success: false, message: "Order not found"});
+            if (!product) {
+                // Product was deleted, cancel order
+                await orderModel.findByIdAndDelete(orderInfo.receipt);
+                return res.json({success: false, message: `Product ${item.name} is no longer available`});
             }
-
-            // Validate and deduct stock for each item
-            for (const item of order.items) {
-                const product = await productModel.findById(item._id);
-                
-                if (!product) {
-                    // Product was deleted, cancel order
+            
+            // Helper function to find variant by parsed attributes
+            const findVariantByAttributes = (product, variantString) => {
+                if (variantString.includes(':') && variantString.includes('::')) {
+                    const attributes = {}
+                    const pairs = variantString.split('::')
+                    pairs.forEach(pair => {
+                        const [type, value] = pair.split(':')
+                        if (type && value) attributes[type] = value
+                    })
+                    return product.variants.find(v => {
+                        for (const [type, value] of Object.entries(attributes)) {
+                            const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                            if (variantValue !== value) return false
+                        }
+                        return true
+                    })
+                }
+                return product.variants.find(v => v.color === variantString)
+            }
+            
+            // Check stock based on variant or non-variant
+            if (product.variants && product.variants.length > 0 && item.selectedVariant) {
+                // Variant product - check variant stock
+                const variant = findVariantByAttributes(product, item.selectedVariant);
+                if (!variant) {
                     await orderModel.findByIdAndDelete(orderInfo.receipt);
-                    return res.json({success: false, message: `Product ${item.name} is no longer available`});
+                    return res.json({success: false, message: `Variant "${item.selectedVariant}" is no longer available for ${item.name}`});
+                }
+                if (variant.stock < item.quantity) {
+                    // Insufficient stock, cancel order
+                    await orderModel.findByIdAndDelete(orderInfo.receipt);
+                    return res.json({success: false, message: `Insufficient stock for ${item.name} (${item.selectedVariant}). Only ${variant.stock} available.`});
                 }
                 
-                // Helper function to find variant by parsed attributes
-                const findVariantByAttributes = (product, variantString) => {
-                    if (variantString.includes(':') && variantString.includes('::')) {
+                // Deduct from variant stock
+                const variantIndex = product.variants.findIndex(v => {
+                    if (item.selectedVariant.includes(':') && item.selectedVariant.includes('::')) {
                         const attributes = {}
-                        const pairs = variantString.split('::')
+                        const pairs = item.selectedVariant.split('::')
                         pairs.forEach(pair => {
                             const [type, value] = pair.split(':')
                             if (type && value) attributes[type] = value
                         })
-                        return product.variants.find(v => {
-                            for (const [type, value] of Object.entries(attributes)) {
-                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
-                                if (variantValue !== value) return false
-                            }
-                            return true
-                        })
-                    }
-                    return product.variants.find(v => v.color === variantString)
-                }
-                
-                // Check stock based on variant or non-variant
-                if (product.variants && product.variants.length > 0 && item.selectedVariant) {
-                    // Variant product - check variant stock
-                    const variant = findVariantByAttributes(product, item.selectedVariant);
-                    if (!variant) {
-                        await orderModel.findByIdAndDelete(orderInfo.receipt);
-                        return res.json({success: false, message: `Variant "${item.selectedVariant}" is no longer available for ${item.name}`});
-                    }
-                    if (variant.stock < item.quantity) {
-                        // Insufficient stock, cancel order
-                        await orderModel.findByIdAndDelete(orderInfo.receipt);
-                        return res.json({success: false, message: `Insufficient stock for ${item.name} (${item.selectedVariant}). Only ${variant.stock} available.`});
-                    }
-                    
-                    // Deduct from variant stock
-                    const variantIndex = product.variants.findIndex(v => {
-                        if (item.selectedVariant.includes(':') && item.selectedVariant.includes('::')) {
-                            const attributes = {}
-                            const pairs = item.selectedVariant.split('::')
-                            pairs.forEach(pair => {
-                                const [type, value] = pair.split(':')
-                                if (type && value) attributes[type] = value
-                            })
-                            for (const [type, value] of Object.entries(attributes)) {
-                                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
-                                if (variantValue !== value) return false
-                            }
-                            return true
+                        for (const [type, value] of Object.entries(attributes)) {
+                            const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                            if (variantValue !== value) return false
                         }
-                        return v.color === item.selectedVariant
-                    });
-                    if (variantIndex >= 0) {
-                        await productModel.findByIdAndUpdate(
-                            item._id,
-                            { $inc: { [`variants.${variantIndex}.stock`]: -item.quantity } },
-                            { new: true }
-                        );
+                        return true
                     }
-                } else {
-                    // Non-variant product
-                    if (product.stock < item.quantity) {
-                        // Insufficient stock, cancel order
-                        await orderModel.findByIdAndDelete(orderInfo.receipt);
-                        return res.json({success: false, message: `Insufficient stock for ${item.name}. Only ${product.stock} available.`});
-                    }
-                    
-                    // Deduct stock
+                    return v.color === item.selectedVariant
+                });
+                if (variantIndex >= 0) {
                     await productModel.findByIdAndUpdate(
                         item._id,
-                        { $inc: { stock: -item.quantity } },
+                        { $inc: { [`variants.${variantIndex}.stock`]: -item.quantity } },
                         { new: true }
                     );
                 }
+            } else {
+                // Non-variant product
+                if (product.stock < item.quantity) {
+                    // Insufficient stock, cancel order
+                    await orderModel.findByIdAndDelete(orderInfo.receipt);
+                    return res.json({success: false, message: `Insufficient stock for ${item.name}. Only ${product.stock} available.`});
+                }
+                
+                // Deduct stock
+                await productModel.findByIdAndUpdate(
+                    item._id,
+                    { $inc: { stock: -item.quantity } },
+                    { new: true }
+                );
             }
-
-            // Mark payment as successful and clear cart
-            await orderModel.findByIdAndUpdate(orderInfo.receipt,{payment:true});
-            await userModel.findByIdAndUpdate(userId,{cartData:{}})
-
-            // Send confirmation email (fire-and-forget)
-            const paidOrder = await orderModel.findById(orderInfo.receipt)
-            const paidUser  = await userModel.findById(userId).select('name email')
-            if (paidOrder && paidUser) {
-                sendOrderConfirmationEmail(paidOrder, paidUser.email, paidUser.name)
-                sendAdminNewOrderEmail(paidOrder, paidUser.name, paidUser.email)
-            }
-
-            res.json({ success: true, message: "Payment Successful" })
-        } else {
-            // Payment failed - no stock deduction needed since it wasn't deducted yet
-            res.json({ success: false, message: 'Payment Failed' });
         }
 
+        // Mark payment as successful and clear cart
+        await orderModel.findByIdAndUpdate(orderInfo.receipt,{payment:true});
+        await userModel.findByIdAndUpdate(userId,{cartData:{}})
+
+        // Send confirmation email (fire-and-forget)
+        const paidOrder = await orderModel.findById(orderInfo.receipt)
+        const paidUser  = await userModel.findById(userId).select('name email')
+        if (paidOrder && paidUser) {
+            sendOrderConfirmationEmail(paidOrder, paidUser.email, paidUser.name)
+            sendAdminNewOrderEmail(paidOrder, paidUser.name, paidUser.email)
+        }
+
+        res.json({ success: true, message: "Payment Verified & Order Confirmed" })
+
     } catch (error) {
-        console.error('Error verifying Razorpay payment:', error)
-        res.json({success:false,message:error.message})
+        res.status(500).json({success:false,message:error.message})
     }
 }
-
 
 // All Orders data for Admin Panel
 const allOrders = async (req,res) => {
@@ -386,7 +543,6 @@ const allOrders = async (req,res) => {
         res.json({success:true,orders})
 
     } catch (error) {
-        console.error('Error fetching all orders:', error)
         res.json({success:false,message:error.message})
     }
 
@@ -402,7 +558,6 @@ const userOrders = async (req,res) => {
         res.json({success:true,orders})
 
     } catch (error) {
-        console.error('Error fetching user orders:', error)
         res.json({success:false,message:error.message})
     }
 }
@@ -444,7 +599,6 @@ const updateStatus = async (req,res) => {
         res.json({success:true,message:'Status Updated'})
 
     } catch (error) {
-        console.error('Error updating order status:', error)
         res.json({success:false,message:error.message})
     }
 }
@@ -456,7 +610,6 @@ const deleteOrder = async (req, res) => {
         await orderModel.findByIdAndDelete(orderId)
         res.json({ success: true, message: 'Order deleted' })
     } catch (error) {
-        console.error('Error deleting order:', error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -486,12 +639,47 @@ const cancelOrder = async (req, res) => {
             return res.json({ success: false, message: 'Only new orders that have not been shipped can be cancelled' })
         }
 
-        // Restore stock for each item
+        // Restore stock for each item (handle both variant and non-variant products)
         for (const item of order.items) {
-            await productModel.findByIdAndUpdate(
-                item._id,
-                { $inc: { stock: item.quantity } }
-            )
+            const product = await productModel.findById(item._id);
+            
+            if (product && item.selectedVariant && product.variants && product.variants.length > 0) {
+                // Variant product - restore variant stock
+                // Find matching variant using same logic as in stock deduction
+                const variantIndex = product.variants.findIndex(v => {
+                    // Support both new format (color:value::attr:value) and old format (just color)
+                    if (item.selectedVariant.includes(':') && item.selectedVariant.includes('::')) {
+                        const attributes = {}
+                        const pairs = item.selectedVariant.split('::')
+                        pairs.forEach(pair => {
+                            const [type, value] = pair.split(':')
+                            if (type && value) attributes[type] = value
+                        })
+                        // Check if variant matches all attributes
+                        for (const [type, value] of Object.entries(attributes)) {
+                            const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type]
+                            if (variantValue !== value) return false
+                        }
+                        return true
+                    }
+                    // Old format - match by color
+                    return v.color === item.selectedVariant
+                });
+                
+                if (variantIndex >= 0) {
+                    // Restore to variant's stock
+                    await productModel.findByIdAndUpdate(
+                        item._id,
+                        { $inc: { [`variants.${variantIndex}.stock`]: item.quantity } }
+                    )
+                }
+            } else {
+                // Non-variant product - restore to product stock
+                await productModel.findByIdAndUpdate(
+                    item._id,
+                    { $inc: { stock: item.quantity } }
+                )
+            }
         }
 
         await orderModel.findByIdAndUpdate(orderId, {
@@ -509,7 +697,6 @@ const cancelOrder = async (req, res) => {
         res.json({ success: true, message: 'Order cancelled successfully' })
 
     } catch (error) {
-        console.error('Error cancelling order:', error)
         res.json({ success: false, message: error.message })
     }
 }

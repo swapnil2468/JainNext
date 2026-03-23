@@ -11,9 +11,7 @@ const connectCloudinary = async () => {
         
         // Verify connection by pinging cloudinary
         await cloudinary.api.ping();
-        console.log("✅ Cloudinary Connected");
     } catch (error) {
-        console.error("❌ Failed to connect to Cloudinary:", error.message);
         throw error;
     }
 

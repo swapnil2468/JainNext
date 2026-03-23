@@ -4,6 +4,22 @@ import Title from '../components/Title'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
+// API endpoints
+const API_ENDPOINTS = {
+  USER_PROFILE: '/api/user/profile',
+  USER_APPLY_WHOLESALE: '/api/user/apply-wholesale'
+};
+
+const ERROR_MESSAGES = {
+  SESSION_EXPIRED: 'Session expired. Please login again.',
+  PROFILE_LOAD_FAILED: 'Failed to load profile. Please try again.',
+  NO_USER_DATA: 'No user data found'
+};
+
+const UI_MESSAGES = {
+  LOADING_PROFILE: 'Loading profile...'
+};
+
 const Profile = () => {
 
   const { backendUrl, token, navigate, logout } = useContext(ShopContext);
@@ -34,14 +50,14 @@ const Profile = () => {
         return
       }
 
-      const response = await axios.post(backendUrl + '/api/user/profile', {}, { headers: { token } })
+      const response = await axios.post(backendUrl + API_ENDPOINTS.USER_PROFILE, {}, { headers: { token } })
       
       if (response.data.success) {
         setUserData(response.data.user)
       } else {
-        const message = response.data.message || 'Failed to load profile';
+        const message = response.data.message || ERROR_MESSAGES.PROFILE_LOAD_FAILED;
         if (isAuthErrorMessage(message)) {
-          toast.error('Session expired. Please login again.');
+          toast.error(ERROR_MESSAGES.SESSION_EXPIRED);
           logout();
           return;
         }
@@ -50,12 +66,11 @@ const Profile = () => {
     } catch (error) {
       const message = error?.response?.data?.message || error.message;
       if (isAuthErrorMessage(message)) {
-        toast.error('Session expired. Please login again.');
+        toast.error(ERROR_MESSAGES.SESSION_EXPIRED);
         logout();
         return;
       }
-      console.error('Error loading profile:', error)
-      toast.error('Failed to load profile. Please try again.')
+      toast.error(ERROR_MESSAGES.PROFILE_LOAD_FAILED)
     } finally {
       setLoading(false)
     }
@@ -75,7 +90,7 @@ const Profile = () => {
 
     try {
       const response = await axios.post(
-        backendUrl + '/api/user/apply-wholesale',
+        backendUrl + API_ENDPOINTS.USER_APPLY_WHOLESALE,
         wholesaleFormData,
         { headers: { token } }
       );
@@ -85,12 +100,10 @@ const Profile = () => {
         setShowWholesaleForm(false);
         // Reload profile to show updated status
         loadUserProfile();
-        // Force reload of userProfile in context
-        window.location.reload();
       } else {
         const message = response.data.message || 'Failed to submit application';
         if (isAuthErrorMessage(message)) {
-          toast.error('Session expired. Please login again.');
+          toast.error(ERROR_MESSAGES.SESSION_EXPIRED);
           logout();
           return;
         }
@@ -99,11 +112,10 @@ const Profile = () => {
     } catch (error) {
       const message = error?.response?.data?.message || error.message;
       if (isAuthErrorMessage(message)) {
-        toast.error('Session expired. Please login again.');
+        toast.error(ERROR_MESSAGES.SESSION_EXPIRED);
         logout();
         return;
       }
-      console.error('Error applying for wholesale:', error);
       toast.error(error.message);
     } finally {
       setSubmitting(false);
@@ -116,7 +128,7 @@ const Profile = () => {
       <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8 flex items-center justify-center'>
         <div className='flex flex-col items-center gap-3'>
           <div className='w-10 h-10 border-2 border-neutral-200 border-t-rose-500 rounded-full animate-spin'></div>
-          <p className='text-neutral-500'>Loading profile...</p>
+          <p className='text-neutral-500'>{UI_MESSAGES.LOADING_PROFILE}</p>
         </div>
       </div>
     )
@@ -125,7 +137,7 @@ const Profile = () => {
   if (!userData) {
     return (
       <div className='min-h-screen bg-gradient-to-b from-neutral-50 via-white to-neutral-50 pt-24 px-6 lg:px-8 flex items-center justify-center'>
-        <p className='text-neutral-500'>No user data found</p>
+        <p className='text-neutral-500'>{ERROR_MESSAGES.NO_USER_DATA}</p>
       </div>
     )
   }

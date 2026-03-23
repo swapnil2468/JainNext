@@ -20,10 +20,8 @@ const deleteCloudinaryImage = async (imageUrl) => {
             const fullPublicId = pathAfterUpload.substring(0, pathAfterUpload.lastIndexOf('.'));
             
             await cloudinary.uploader.destroy(fullPublicId);
-            console.log(`Deleted image: ${fullPublicId}`);
         }
     } catch (error) {
-        console.error('Error deleting image from Cloudinary:', error);
     }
 };
 

@@ -6,6 +6,28 @@ import { ShopContext } from '../context/ShopContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
+// API endpoints
+const API_ENDPOINTS = {
+  ORDER_VERIFY_RAZORPAY: '/api/order/verifyRazorpay',
+  ORDER_PLACE_COD: '/api/order/place',
+  ORDER_CREATE_RAZORPAY: '/api/order/razorpay'
+};
+
+// Validation messages & constraints
+const VALIDATION_MESSAGES = {
+  REQUIRED_FIELDS: 'Please fill all fields',
+  INVALID_EMAIL: 'Please enter a valid email address',
+  INVALID_PHONE: 'Please enter a valid 10-digit mobile number',
+  INVALID_ZIPCODE: 'Zipcode must be 6 digits',
+  VERIFY_FAILED: 'Payment verification failed'
+};
+
+const CONSTRAINTS = {
+  PASSWORD_MIN_LENGTH: 8,
+  PHONE_DIGITS: 10,
+  ZIPCODE_DIGITS: 6
+};
+
 const PlaceOrder = () => {
 
     const [method, setMethod] = useState('cod');
@@ -37,7 +59,7 @@ const PlaceOrder = () => {
         
         // Phone number: store raw 10 digits only; +91 is prepended at submission time
         if (name === 'phone') {
-            value = value.replace(/\D/g, '').slice(0, 10);
+            value = value.replace(/\D/g, '').slice(0, CONSTRAINTS.PHONE_DIGITS);
         }
         
         // Zipcode validation (Indian zipcode is 6 digits)
@@ -45,8 +67,8 @@ const PlaceOrder = () => {
             // Only allow digits
             value = value.replace(/\D/g, '');
             // Limit to 6 digits
-            if (value.length > 6) {
-                value = value.slice(0, 6);
+            if (value.length > CONSTRAINTS.ZIPCODE_DIGITS) {
+                value = value.slice(0, CONSTRAINTS.ZIPCODE_DIGITS);
             }
         }
         
@@ -64,16 +86,36 @@ const PlaceOrder = () => {
             receipt: order.receipt,
             handler: async (response) => {
                 try {
+                    // Send signature data to backend for verification
+                    const verifyData = {
+                        userId: token,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_signature: response.razorpay_signature
+                    }
                     
-                    const { data } = await axios.post(backendUrl + '/api/order/verifyRazorpay',response,{headers:{token}})
+                    const { data } = await axios.post(backendUrl + API_ENDPOINTS.ORDER_VERIFY_RAZORPAY, verifyData, {headers:{token}})
                     if (data.success) {
+                        toast.success('Payment Verified Successfully!')
                         navigate('/orders')
                         setCartItems({})
+                    } else {
+                        toast.error(data.message || VALIDATION_MESSAGES.VERIFY_FAILED)
                     }
                 } catch (error) {
-                    console.error('Razorpay verification error:', error)
-                    toast.error(error.message)
+                    toast.error(error.response?.data?.message || error.message || 'Payment verification error')
                 }
+            },
+            prefill: {
+                name: `${formData.firstName} ${formData.lastName}`,
+                email: formData.email,
+                contact: formData.phone
+            },
+            notes: {
+                address: `${formData.street}, ${formData.city}, ${formData.state} ${formData.zipcode}`
+            },
+            theme: {
+                color: '#dc2626'
             }
         }
         const rzp = new window.Razorpay(options)
@@ -88,27 +130,27 @@ const PlaceOrder = () => {
         
         // Check required fields
         if (!firstName || !lastName || !email || !street || !city || !state || !zipcode || !country || !phone) {
-            toast.error('Please fill all fields');
+            toast.error(VALIDATION_MESSAGES.REQUIRED_FIELDS);
             return;
         }
         
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            toast.error('Please enter a valid email address');
+            toast.error(VALIDATION_MESSAGES.INVALID_EMAIL);
             return;
         }
         
         // Validate phone: must be exactly 10 digits
         if (!/^\d{10}$/.test(phone)) {
-            toast.error('Please enter a valid 10-digit mobile number');
+            toast.error(VALIDATION_MESSAGES.INVALID_PHONE);
             return;
         }
         
         // Validate Indian zipcode (6 digits)
         const zipcodeStr = zipcode.toString();
         if (!/^\d{6}$/.test(zipcodeStr)) {
-            toast.error('Zipcode must be 6 digits');
+            toast.error(VALIDATION_MESSAGES.INVALID_ZIPCODE);
             return;
         }
         
@@ -144,6 +186,7 @@ const PlaceOrder = () => {
                         // Find matching variant if variant attributes exist
                         let matchingVariant = null
                         if (Object.keys(variantAttributes).length > 0 && product.variants?.length > 0) {
+                            // Strict match: find variant matching ALL provided attributes
                             matchingVariant = product.variants.find(v => {
                                 for (const [type, value] of Object.entries(variantAttributes)) {
                                     const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type];
@@ -151,6 +194,25 @@ const PlaceOrder = () => {
                                 }
                                 return true;
                             })
+                            
+                            // Fallback 1: If we have a color attribute, try to match by color alone
+                            if (!matchingVariant && variantAttributes.color && !product.variantTypes?.includes('length')) {
+                                matchingVariant = product.variants.find(v => 
+                                    (v.color === variantAttributes.color || v.attributes?.color === variantAttributes.color)
+                                );
+                            }
+                            
+                            // Fallback 2: Match by color if available
+                            if (!matchingVariant && variantAttributes.color) {
+                                matchingVariant = product.variants.find(v => 
+                                    (v.color === variantAttributes.color || v.attributes?.color === variantAttributes.color)
+                                );
+                            }
+                            
+                            // Fallback 3: Use first variant if nothing matches
+                            if (!matchingVariant) {
+                                matchingVariant = product.variants[0] || null;
+                            }
                         }
                         
                         // Ensure price fields are set
@@ -190,7 +252,7 @@ const PlaceOrder = () => {
 
                 // API Calls for COD
                 case 'cod':
-                    const response = await axios.post(backendUrl + '/api/order/place',orderData,{headers:{token}})
+                    const response = await axios.post(backendUrl + API_ENDPOINTS.ORDER_PLACE_COD,orderData,{headers:{token}})
                     if (response.data.success) {
                         setCartItems({})
                         navigate('/orders')
@@ -201,7 +263,7 @@ const PlaceOrder = () => {
 
                 case 'razorpay':
 
-                    const responseRazorpay = await axios.post(backendUrl + '/api/order/razorpay', orderData, {headers:{token}})
+                    const responseRazorpay = await axios.post(backendUrl + API_ENDPOINTS.ORDER_CREATE_RAZORPAY, orderData, {headers:{token}})
                     if (responseRazorpay.data.success) {
                         initPay(responseRazorpay.data.order)
                     }
@@ -214,7 +276,6 @@ const PlaceOrder = () => {
 
 
         } catch (error) {
-            console.error('Order placement error:', error)
             toast.error(error.message)
         } finally {
             setLoading(false);
@@ -247,7 +308,7 @@ const PlaceOrder = () => {
                         </h2>
 
                         <div className='space-y-6'>
-                        <div className='grid grid-cols-2 gap-6'>
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-6'>
                             <div>
                             <label className='block text-sm font-medium text-neutral-700 mb-2.5'>First Name *</label>
                             <input

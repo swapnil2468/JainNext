@@ -262,53 +262,29 @@ const Orders = ({ token }) => {
               <div key={order._id} className='bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm'>
                 {/* Top Section */}
                 <div className='p-6 flex items-start gap-4 justify-between border-b border-gray-200'>
-                  {/* Left - Product Image & Info */}
-                  <div className='flex gap-4 flex-1'>
-                    {(() => {
-                      const firstItem = order.items[0]
-                      let imageUrl = null
-                      
-                      if (firstItem?.selectedVariant && firstItem?.variants && firstItem.variants.length > 0) {
-                        const variant = firstItem.variants.find(v => v.color === firstItem.selectedVariant)
-                        if (variant && variant.images && variant.images.length > 0) {
-                          imageUrl = variant.images[0]
-                        }
-                      }
-                      if (!imageUrl && firstItem?.image && firstItem.image.length > 0) {
-                        imageUrl = firstItem.image[0]
-                      }
-                      
-                      return (
-                        <img 
-                          src={imageUrl || assets.upload_area}
-                          alt={firstItem?.name}
-                          className='w-20 h-20 object-cover rounded-lg flex-shrink-0'
-                        />
-                      )
-                    })()}
-                    <div className='flex-1'>
-                      <div className='mb-2'>
-                        <h3 className='text-gray-900 font-bold text-base antialiased'>
-                          {(() => {
-                            const productNames = order.items.map(item => item.name)
-                            const uniqueNames = [...new Set(productNames)]
-                            
-                            if (uniqueNames.length <= 2) {
-                              return uniqueNames.join(', ')
-                            } else {
-                              return `${uniqueNames.slice(0, 2).join(', ')} + ${uniqueNames.length - 2} more`
-                            }
-                          })()}
-                        </h3>
-                      </div>
-                      <p className='text-sm mb-1 antialiased'>
-                        <span className='text-gray-400'>Order ID: </span>
-                        <span className='text-gray-900 font-semibold'>#{order._id.slice(-8).toUpperCase()}</span>
-                        <span className='text-gray-400'> • {new Date(order.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      </p>
-                      <p className='text-xs text-gray-500 mb-2'>{order.items.length} item{order.items.length > 1 ? 's' : ''}</p>
-                      <p className='text-2xl font-bold text-red-600 antialiased'>{currency}{order.amount.toFixed(2)}</p>
+                  {/* Left - Info Only (No Image) */}
+                  <div className='flex-1'>
+                    <div className='mb-2'>
+                      <h3 className='text-gray-900 font-bold text-base antialiased'>
+                        {(() => {
+                          const productNames = order.items.map(item => item.name)
+                          const uniqueNames = [...new Set(productNames)]
+                          
+                          if (uniqueNames.length <= 2) {
+                            return uniqueNames.join(', ')
+                          } else {
+                            return `${uniqueNames.slice(0, 2).join(', ')} + ${uniqueNames.length - 2} more`
+                          }
+                        })()}
+                      </h3>
                     </div>
+                    <p className='text-sm mb-1 antialiased'>
+                      <span className='text-gray-400'>Order ID: </span>
+                      <span className='text-gray-900 font-semibold'>#{order._id.slice(-8).toUpperCase()}</span>
+                      <span className='text-gray-400'> • {new Date(order.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </p>
+                    <p className='text-xs text-gray-700 font-medium mb-2'>{order.items.length} item{order.items.length > 1 ? 's' : ''}</p>
+                    <p className='text-2xl font-bold text-red-600 antialiased'>{currency}{order.amount.toFixed(2)}</p>
                   </div>
 
                   {/* Right - Status & Buttons */}
@@ -358,38 +334,92 @@ const Orders = ({ token }) => {
                   </div>
                 </div>
 
-                {/* Items Section */}
+                {/* Items Section - PROMINENTLY DISPLAYED */}
                 {expandedOrders[order._id] && (
-                  <div className='p-6 bg-gray-50 border-t border-gray-200 animate-in fade-in duration-200'>
-                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased'>All Items ({order.items.length})</p>
-                    <div className='space-y-2'>
+                  <div className='p-6 bg-white border-t border-gray-200 animate-in fade-in duration-200'>
+                    <p className='text-xs font-bold text-gray-900 uppercase tracking-wider mb-4 antialiased'>📦 PRODUCTS ORDERED ({order.items.length})</p>
+                    <div className='space-y-4'>
                       {order.items.map((item, idx) => {
                         let imageUrl = null
-                        if (item.selectedVariant && item.variants && item.variants.length > 0) {
-                          const variant = item.variants.find(v => v.color === item.selectedVariant)
+                        
+                        // Parse the selectedVariant string to extract color
+                        let variantColor = null
+                        if (item.selectedVariant && item.selectedVariant.includes(':')) {
+                          // Format: "color:Red::length:5m"
+                          const colorMatch = item.selectedVariant.match(/color:([^:]+)(?:::|\s|$)/)
+                          if (colorMatch) {
+                            variantColor = colorMatch[1]
+                          }
+                        } else if (item.selectedVariant) {
+                          // Fallback: treat whole thing as color
+                          variantColor = item.selectedVariant
+                        }
+                        
+                        // Try to get variant image first
+                        if (variantColor && item.variants && item.variants.length > 0) {
+                          const variant = item.variants.find(v => v.color === variantColor)
                           if (variant && variant.images && variant.images.length > 0) {
                             imageUrl = variant.images[0]
                           }
                         }
+                        
+                        // Fallback to product image
                         if (!imageUrl && item.image && item.image.length > 0) {
                           imageUrl = item.image[0]
                         }
                         
                         return (
-                          <div key={idx} className='flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200'>
-                            {imageUrl && (
-                              <img src={imageUrl} alt={item.name} className='w-12 h-12 object-cover rounded-lg' onError={(e) => e.target.style.display = 'none'} />
-                            )}
+                          <div key={idx} className='flex items-start gap-4 p-4 bg-gradient-to-r from-rose-50 to-red-50 rounded-xl border-2 border-red-200 hover:border-red-400 transition-all'>
+                            {/* Product Image */}
+                            <div className='flex-shrink-0'>
+                              <img 
+                                src={imageUrl || assets.upload_area}
+                                alt={item.name} 
+                                className='w-28 h-28 object-cover rounded-lg shadow-md border border-red-300' 
+                                onError={(e) => { e.target.src = assets.upload_area }}
+                              />
+                            </div>
+                            
+                            {/* Product Details */}
                             <div className='flex-1'>
-                              <div className='flex items-baseline gap-2'>
-                                <p className='text-sm font-medium text-gray-900'>{item.name}</p>
-                                {item.selectedVariant && (
-                                  <span className='text-xs px-2 py-0.5 bg-rose-50 text-rose-700 rounded-full capitalize font-medium'>
-                                    {item.selectedVariant}
-                                  </span>
-                                )}
+                              <div className='flex items-start justify-between gap-4'>
+                                <div>
+                                  <p className='text-base font-bold text-gray-900 mb-1'>{item.name}</p>
+                                  
+                                  {/* Variant Info */}
+                                  {item.selectedVariant && (
+                                    <div className='mb-2'>
+                                      <p className='text-xs text-gray-800 font-bold mb-1.5 tracking-wide'>SPECIFICATIONS:</p>
+                                      <ul className='text-sm font-semibold text-gray-800 space-y-1'>
+                                        {item.selectedVariant.split('::').map((spec, idx) => (
+                                          <li key={idx} className='flex items-center gap-2.5'>
+                                            <span className='w-2 h-2 bg-red-600 rounded-full flex-shrink-0'></span>
+                                            <span className='capitalize font-bold text-gray-900'>{spec.trim().split(':').join(' : ')}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Quantity & Price */}
+                                  <div className='flex items-center gap-4 text-sm'>
+                                    <div className='flex items-center gap-2'>
+                                      <span className='text-gray-800 font-bold'>Quantity:</span>
+                                      <span className='bg-white px-3 py-1 rounded-lg font-bold text-gray-900 border border-gray-300'>{item.quantity}</span>
+                                    </div>
+                                    <div className='text-gray-800 font-medium'>
+                                      <span className='font-bold'>Unit Price: </span>
+                                      <span className='font-bold text-gray-900'>{currency}{(item.retailPrice || item.price || 0).toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Total for this item */}
+                                <div className='text-right'>
+                                  <p className='text-xs text-gray-800 font-bold mb-1'>SUBTOTAL</p>
+                                  <p className='text-lg font-bold text-red-600'>{currency}{(item.quantity * (item.retailPrice || item.price || 0)).toFixed(2)}</p>
+                                </div>
                               </div>
-                              <p className='text-xs text-gray-500 mt-1'>Qty: {item.quantity} • {currency}{(item.retailPrice || item.price || 0).toFixed(2)}</p>
                             </div>
                           </div>
                         )
@@ -400,49 +430,65 @@ const Orders = ({ token }) => {
 
                 {/* Details Section - Collapsible */}
                 {expandedOrders[order._id] && (
-                  <div className='p-6 bg-white grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-gray-200 animate-in fade-in duration-200'>
-                  {/* Customer Information */}
-                  <div className='border-r border-gray-300 pr-6'>
-                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
-                      <span>👤</span> Customer Information
-                    </p>
-                    <p className='text-sm font-bold text-gray-900 antialiased'>{order.address.firstName} {order.address.lastName}</p>
-                    <p className='text-sm text-gray-900 mt-2 antialiased'>+91 {order.address.phone || 'N/A'}</p>
-                    {order.address.email && <p className='text-sm text-gray-900 antialiased'>{order.address.email}</p>}
-                  </div>
+                  <div className='p-6 bg-gray-50 grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-200 animate-in fade-in duration-200'>
+                    
+                    {/* Left Column */}
+                    <div>
+                      {/* Customer Information */}
+                      <div className='bg-white p-4 rounded-xl border border-gray-200 mb-6'>
+                        <p className='text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
+                          <span>👤</span> Customer Information
+                        </p>
+                        <p className='text-sm font-bold text-gray-900 antialiased mb-1'>{order.address.firstName} {order.address.lastName}</p>
+                        <p className='text-sm text-gray-800 font-medium antialiased mb-1 flex items-center gap-2'>
+                          <span>📱</span>
+                          +91 {order.address.phone || 'N/A'}
+                        </p>
+                        {order.address.email && (
+                          <p className='text-sm text-gray-800 font-medium antialiased flex items-center gap-2'>
+                            <span>✉️</span>{order.address.email}
+                          </p>
+                        )}
+                      </div>
 
-                  {/* Shipping Address */}
-                  <div className='border-r border-gray-300 px-6 md:px-6'>
-                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
-                      <span>📍</span> Shipping Address
-                    </p>
-                    <p className='text-sm text-gray-900 antialiased'>{order.address.street}</p>
-                    <p className='text-sm text-gray-900 antialiased'>{order.address.city}, {order.address.state} {order.address.zipcode}</p>
-                    <p className='text-sm text-gray-900 antialiased'>{order.address.country}</p>
-                  </div>
+                      {/* Shipping Address */}
+                      <div className='bg-white p-4 rounded-xl border border-gray-200'>
+                        <p className='text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
+                          <span>📍</span> Shipping Address
+                        </p>
+                        <p className='text-sm text-gray-900 antialiased font-medium mb-1'>{order.address.street}</p>
+                        <p className='text-sm text-gray-800 font-medium antialiased mb-1'>{order.address.city}, {order.address.state} {order.address.zipcode}</p>
+                        <p className='text-sm text-gray-800 font-medium antialiased'>{order.address.country}</p>
+                      </div>
+                    </div>
 
-                  {/* Tracking Details */}
-                  <div className='pl-6 md:pl-6'>
-                    <p className='text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
-                      <span>📦</span> Tracking Details
-                    </p>
-                    {['Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) ? (
-                      <>
-                        <input
-                          type='text'
-                          placeholder='Enter Tracking ID'
-                          value={trackingNumbers[order._id] || ''}
-                          onChange={(e) => setTrackingNumbers(prev => ({ ...prev, [order._id]: e.target.value }))}
-                          onBlur={() => saveTracking(order._id, order.status)}
-                          className='w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-500 font-medium antialiased'
-                        />
-                        <p className='text-xs text-gray-400 mt-2 antialiased'>Tracking info will be sent via SMS once saved</p>
-                      </>
-                    ) : (
-                      <p className='text-xs text-gray-400 italic antialiased'>Available after shipping</p>
-                    )}
+                    {/* Right Column */}
+                    <div>
+                      {/* Tracking Details */}
+                      <div className='bg-white p-4 rounded-xl border border-gray-200 h-full'>
+                        <p className='text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 antialiased flex items-center gap-2'>
+                          <span>📦</span> Tracking Details
+                        </p>
+                        {['Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) ? (
+                          <>
+                            <input
+                              type='text'
+                              placeholder='Enter Tracking ID'
+                              value={trackingNumbers[order._id] || ''}
+                              onChange={(e) => setTrackingNumbers(prev => ({ ...prev, [order._id]: e.target.value }))}
+                              onBlur={() => saveTracking(order._id, order.status)}
+                              className='w-full px-4 py-2 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:border-red-500 font-medium antialiased mb-3'
+                            />
+                            <p className='text-xs text-gray-700 font-medium italic antialiased'>✓ Tracking info will be sent via SMS once saved</p>
+                          </>
+                        ) : (
+                          <div className='bg-blue-50 p-3 rounded-lg border border-blue-200'>
+                            <p className='text-xs text-blue-600 italic antialiased font-medium'>⏳ Tracking available after shipping</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
                 )}
 
               </div>

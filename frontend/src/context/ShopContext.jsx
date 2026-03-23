@@ -1,9 +1,35 @@
-import { createContext, useEffect, useState, useRef } from "react";
+import { createContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios'
 
 export const ShopContext = createContext();
+
+// Constants
+const API_ENDPOINTS = {
+    CART_ADD: '/api/cart/add',
+    CART_UPDATE: '/api/cart/update',
+    CART_GET: '/api/cart/get',
+    PRODUCT_LIST: '/api/product/list',
+    USER_PROFILE: '/api/user/profile'
+};
+
+const STORAGE_KEYS = {
+    TOKEN: 'token',
+    GUEST_CART: 'guestCart'
+};
+
+const CART_LIMITS = {
+    MAX_QUANTITY: 999,
+    DEFAULT_MIN_WHOLESALE_QTY: 10
+};
+
+const ERROR_MESSAGES = {
+    SESSION_EXPIRED: 'Session expired. Please login again.',
+    PRODUCT_NOT_FOUND: 'Product not found',
+    MAX_QUANTITY_REACHED: 'Maximum quantity limit reached',
+    SYNC_FAILED: 'Failed to sync cart'
+};
 
 const ShopContextProvider = (props) => {
 
@@ -17,9 +43,7 @@ const ShopContextProvider = (props) => {
     const [token, setToken] = useState('')
     const [userProfile, setUserProfile] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState([]);
-    const [selectedSubCategory, setSelectedSubCategory] = useState([]);
     const navigate = useNavigate();
-    const hasCleanedCart = useRef(false);
 
     const isAuthErrorMessage = (message = '') => {
         if (!message || typeof message !== 'string') return false;
@@ -40,7 +64,7 @@ const ShopContextProvider = (props) => {
         }
     }
 
-    const handleAuthFailure = (message = 'Session expired. Please login again.') => {
+    const handleAuthFailure = (message = ERROR_MESSAGES.SESSION_EXPIRED) => {
         logout();
         toast.error(message);
     }
@@ -55,7 +79,7 @@ const ShopContextProvider = (props) => {
             userProfile.role === 'wholesale' && 
             userProfile.isApproved && 
             product.wholesalePrice && 
-            quantity >= (product.minimumWholesaleQuantity || 10)) {
+            quantity >= (product.minimumWholesaleQuantity || CART_LIMITS.DEFAULT_MIN_WHOLESALE_QTY)) {
             return product.wholesalePrice;
         }
         // Default to retail price
@@ -75,7 +99,7 @@ const ShopContextProvider = (props) => {
     const addToCart = async (itemId, quantity = 1, variantColor = null, selectedAttributes = null) => {
       const product = products.find(p => p._id === itemId)
       if (!product) {
-        toast.error('Product not found')
+        toast.error(ERROR_MESSAGES.PRODUCT_NOT_FOUND)
         return
       }
 
@@ -98,8 +122,8 @@ const ShopContextProvider = (props) => {
       const currentQty = cartItems[cartKey] || 0
       const newQty = currentQty + quantity
 
-      if (newQty > 999) {
-        toast.error('Maximum quantity limit reached')
+      if (newQty > CART_LIMITS.MAX_QUANTITY) {
+        toast.error(ERROR_MESSAGES.MAX_QUANTITY_REACHED)
         return
       }
 
@@ -118,7 +142,7 @@ const ShopContextProvider = (props) => {
         try {
           // Send both formats to backend for compatibility
           await axios.post(
-            backendUrl + '/api/cart/add',
+            backendUrl + API_ENDPOINTS.CART_ADD,
             { 
               itemId, 
               quantity, 
@@ -128,11 +152,10 @@ const ShopContextProvider = (props) => {
             { headers: { token } }
           )
         } catch (error) {
-          console.error('Error adding to cart:', error)
           toast.error(error.message)
         }
       } else {
-        localStorage.setItem('guestCart', JSON.stringify(cartData))
+        localStorage.setItem(STORAGE_KEYS.GUEST_CART, JSON.stringify(cartData))
       }
     }
 
@@ -140,7 +163,7 @@ const ShopContextProvider = (props) => {
     const setCartQuantity = async (itemId, quantity, variantColor = null, selectedAttributes = null) => {
       const product = products.find(p => p._id === itemId)
       if (!product) {
-        toast.error('Product not found')
+        toast.error(ERROR_MESSAGES.PRODUCT_NOT_FOUND)
         return
       }
 
@@ -169,7 +192,7 @@ const ShopContextProvider = (props) => {
         if (token) {
           try {
             await axios.post(
-              backendUrl + '/api/cart/add',
+              backendUrl + API_ENDPOINTS.CART_ADD,
               { 
                 itemId, 
                 quantity: 0, 
@@ -179,16 +202,16 @@ const ShopContextProvider = (props) => {
               { headers: { token } }
             )
           } catch (error) {
-            console.error('Error updating cart:', error)
+            // Silent error handling for removal
           }
         } else {
-          localStorage.setItem('guestCart', JSON.stringify(cartData))
+          localStorage.setItem(STORAGE_KEYS.GUEST_CART, JSON.stringify(cartData))
         }
         return
       }
 
-      if (quantity > 999) {
-        toast.error('Maximum quantity limit reached')
+      if (quantity > CART_LIMITS.MAX_QUANTITY) {
+        toast.error(ERROR_MESSAGES.MAX_QUANTITY_REACHED)
         return
       }
 
@@ -205,7 +228,7 @@ const ShopContextProvider = (props) => {
       if (token) {
         try {
           await axios.post(
-            backendUrl + '/api/cart/add',
+            backendUrl + API_ENDPOINTS.CART_ADD,
             { 
               itemId, 
               quantity, 
@@ -215,11 +238,10 @@ const ShopContextProvider = (props) => {
             { headers: { token } }
           )
         } catch (error) {
-          console.error('Error updating cart:', error)
           toast.error(error.message)
         }
       } else {
-        localStorage.setItem('guestCart', JSON.stringify(cartData))
+        localStorage.setItem(STORAGE_KEYS.GUEST_CART, JSON.stringify(cartData))
       }
     }
 
@@ -237,7 +259,7 @@ const ShopContextProvider = (props) => {
                     }
                 }
             } catch (error) {
-                console.error('Error counting cart items:', error)
+                // Silent error handling
             }
         }
         return totalCount;
@@ -280,7 +302,7 @@ const ShopContextProvider = (props) => {
                 }
 
                 await axios.post(
-                  backendUrl + '/api/cart/update', 
+                  backendUrl + API_ENDPOINTS.CART_UPDATE, 
                   { 
                     itemId, 
                     quantity, 
@@ -291,12 +313,11 @@ const ShopContextProvider = (props) => {
                 )
 
             } catch (error) {
-                console.error('Error updating cart:', error)
                 toast.error(error.message)
             }
         } else {
             // Save to localStorage if not logged in
-            localStorage.setItem('guestCart', JSON.stringify(cartData));
+            localStorage.setItem(STORAGE_KEYS.GUEST_CART, JSON.stringify(cartData));
         }
 
     }
@@ -349,15 +370,24 @@ const ShopContextProvider = (props) => {
                           variant = itemInfo.variants.find(v => v.color === variantPart)
                         }
                         
-                        price = variant?.price || itemInfo.retailPrice || itemInfo.price
+                        price = (variant?.price !== undefined && variant?.price !== null && variant?.price !== '') ? Number(variant.price) : (itemInfo.retailPrice || itemInfo.price)
+                        // For variant products without main price, use first variant
+                        if (!price && itemInfo?.variants?.[0]?.price) {
+                          price = itemInfo.variants[0].price
+                        }
+                        price = price || 0
                     } else {
-                        // Non-variant product - use getProductPrice
+                        // Non-variant product - use getProductPrice, with fallback to first variant
                         price = getProductPrice(itemInfo, cartItems[cartKey])
+                        if (!price && itemInfo?.variants?.[0]?.price) {
+                          price = itemInfo.variants[0].price
+                        }
+                        price = price || 0
                     }
                     totalAmount += price * cartItems[cartKey];
                 }
             } catch (error) {
-                console.error('Error calculating cart amount:', error)
+                // Silent error handling
             }
         }
         return totalAmount;
@@ -387,7 +417,7 @@ const ShopContextProvider = (props) => {
                     // Zero out removed items in backend so they don't reappear on next load
                     const removedIds = Object.keys(cartItems).filter(id => !(id in cartData));
                     for (const itemId of removedIds) {
-                        await axios.post(backendUrl + '/api/cart/update',
+                        await axios.post(backendUrl + API_ENDPOINTS.CART_UPDATE,
                             { itemId, quantity: 0 },
                             { headers: { token } }
                         )
@@ -395,18 +425,18 @@ const ShopContextProvider = (props) => {
                     // Update remaining items
                     for (const itemId in cartData) {
                         if (cartData[itemId] > 0) {
-                            await axios.post(backendUrl + '/api/cart/update', 
+                            await axios.post(backendUrl + API_ENDPOINTS.CART_UPDATE, 
                                 { itemId, quantity: cartData[itemId] }, 
                                 { headers: { token } }
                             )
                         }
                     }
                 } catch (error) {
-                    console.error('Error cleaning up cart:', error);
+                    // Silent error handling
                 }
             } else {
                 // Update localStorage for guest users
-                localStorage.setItem('guestCart', JSON.stringify(cartData));
+                localStorage.setItem(STORAGE_KEYS.GUEST_CART, JSON.stringify(cartData));
             }
         }
     }
@@ -415,7 +445,7 @@ const ShopContextProvider = (props) => {
         try {
             // Include token in request header so server can filter prices appropriately
             const headers = token ? { token } : {};
-            const response = await axios.get(backendUrl + '/api/product/list', { headers });
+            const response = await axios.get(backendUrl + API_ENDPOINTS.PRODUCT_LIST, { headers });
             
             if (response.data.success) {
                 setProducts(response.data.products.reverse())
@@ -424,7 +454,6 @@ const ShopContextProvider = (props) => {
             }
 
         } catch (error) {
-            console.error('Error fetching products:', error)
             toast.error(error.message)
         }
     }
@@ -432,7 +461,7 @@ const ShopContextProvider = (props) => {
     const getUserCart = async ( token ) => {
         try {
             
-            const response = await axios.post(backendUrl + '/api/cart/get',{},{headers:{token}})
+            const response = await axios.post(backendUrl + API_ENDPOINTS.CART_GET,{},{headers:{token}})
             if (response.data.success) {
                 // Clean up any corrupted cart data
                 if (response.data.cartData) {
@@ -445,41 +474,39 @@ const ShopContextProvider = (props) => {
                     setCartItems(response.data.cartData)
                 }
             } else if (isAuthErrorMessage(response.data.message)) {
-                handleAuthFailure('Session expired. Please login again.')
+                handleAuthFailure(ERROR_MESSAGES.SESSION_EXPIRED)
             }
         } catch (error) {
             const message = error?.response?.data?.message || error.message
             if (isAuthErrorMessage(message)) {
-                handleAuthFailure('Session expired. Please login again.')
+                handleAuthFailure(ERROR_MESSAGES.SESSION_EXPIRED)
                 return
             }
-            console.error('Error fetching user cart:', error)
             toast.error(message)
         }
     }
 
     const getUserProfile = async (token) => {
         try {
-            const response = await axios.post(backendUrl + '/api/user/profile', {}, { headers: { token } });
+            const response = await axios.post(backendUrl + API_ENDPOINTS.USER_PROFILE, {}, { headers: { token } });
             if (response.data.success) {
                 setUserProfile(response.data.user);
             } else if (isAuthErrorMessage(response.data.message)) {
-                handleAuthFailure('Session expired. Please login again.');
+                handleAuthFailure(ERROR_MESSAGES.SESSION_EXPIRED);
             }
         } catch (error) {
             const message = error?.response?.data?.message || error.message
             if (isAuthErrorMessage(message)) {
-                handleAuthFailure('Session expired. Please login again.');
+                handleAuthFailure(ERROR_MESSAGES.SESSION_EXPIRED);
                 return;
             }
-            console.error('Error fetching user profile:', error);
         }
     }
 
     const syncCartToDatabase = async (localCart, token) => {
         try {
             // Get current backend cart
-            const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } })
+            const response = await axios.post(backendUrl + API_ENDPOINTS.CART_GET, {}, { headers: { token } })
             if (response.data.success) {
                 const backendCart = response.data.cartData || {};
                 
@@ -494,7 +521,7 @@ const ShopContextProvider = (props) => {
                 // Update all items in backend
                 for (const itemId in mergedCart) {
                     if (mergedCart[itemId] > 0) {
-                        await axios.post(backendUrl + '/api/cart/update', 
+                        await axios.post(backendUrl + API_ENDPOINTS.CART_UPDATE, 
                             { itemId, quantity: mergedCart[itemId] }, 
                             { headers: { token } }
                         )
@@ -504,20 +531,19 @@ const ShopContextProvider = (props) => {
                 // Update local state with merged cart
                 setCartItems(mergedCart);
                 // Clear guest cart from localStorage
-                localStorage.removeItem('guestCart');
+                localStorage.removeItem(STORAGE_KEYS.GUEST_CART);
                 
                 return true; // Indicate sync completed
             } else if (isAuthErrorMessage(response.data.message)) {
-                handleAuthFailure('Session expired. Please login again.')
+                handleAuthFailure(ERROR_MESSAGES.SESSION_EXPIRED)
             }
         } catch (error) {
             const message = error?.response?.data?.message || error.message
             if (isAuthErrorMessage(message)) {
-                handleAuthFailure('Session expired. Please login again.')
+                handleAuthFailure(ERROR_MESSAGES.SESSION_EXPIRED)
                 return false
             }
-            console.error('Error syncing cart to database:', error)
-            toast.error('Failed to sync cart')
+            toast.error(ERROR_MESSAGES.SYNC_FAILED)
             return false;
         }
     }
@@ -531,33 +557,22 @@ const ShopContextProvider = (props) => {
         }
     }, [token])
 
-    // Disabled automatic cleanup on product load - causes race conditions on reload
-    // Cart items are persisted server-side and should not be auto-deleted based on product order
-    // useEffect(() => {
-    //     if (products.length > 0 && Object.keys(cartItems).length > 0 && !hasCleanedCart.current) {
-    //         cleanupCart();
-    //         hasCleanedCart.current = true;
-    //     }
-    // }, [products, cartItems])
-
     useEffect(() => {
-        // Reset cleanup flag on every token change so new sessions get cleaned properly
-        hasCleanedCart.current = false;
-        if (!token && localStorage.getItem('token')) {
-            setToken(localStorage.getItem('token'))
+        if (!token && localStorage.getItem(STORAGE_KEYS.TOKEN)) {
+            setToken(localStorage.getItem(STORAGE_KEYS.TOKEN))
             if (products.length > 0) {
-                getUserCart(localStorage.getItem('token'))
+                getUserCart(localStorage.getItem(STORAGE_KEYS.TOKEN))
             }
         } else if (token && products.length > 0) {
             getUserCart(token)
         } else if (!token) {
             // Load guest cart from localStorage when not logged in
-            const guestCart = localStorage.getItem('guestCart');
+            const guestCart = localStorage.getItem(STORAGE_KEYS.GUEST_CART);
             if (guestCart) {
                 try {
                     setCartItems(JSON.parse(guestCart));
                 } catch (error) {
-                    console.error('Error loading guest cart:', error);
+                    // Silent error handling
                 }
             }
         }
@@ -571,8 +586,7 @@ const ShopContextProvider = (props) => {
         getCartAmount, navigate, backendUrl,
         setToken, token, syncCartToDatabase, logout,
         userProfile, getProductPrice, canUseWholesalePrice,
-        selectedCategory, setSelectedCategory,
-        selectedSubCategory, setSelectedSubCategory
+        selectedCategory, setSelectedCategory
     }
 
     return (
