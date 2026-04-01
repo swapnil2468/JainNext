@@ -298,8 +298,15 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
                 ) : (
                   <div>
                     <p className='text-2xl font-bold text-neutral-900'>{currency}{displayPrice}</p>
-                    {displayWholesalePrice && userProfile?.role === 'wholesale' && (
-                      <p className='text-xs text-neutral-500 mt-2'>Wholesale price available at {product.minimumWholesaleQuantity || 10}+ qty</p>
+                    {displayWholesalePrice && userProfile?.role === 'wholesale' && userProfile?.isApproved && (
+                      <div className='mt-3'>
+                        <p className='text-xs text-neutral-600 font-medium'>Minimum quantity: {product.minimumWholesaleQuantity || 10} units</p>
+                        {quantity >= (product.minimumWholesaleQuantity || 10) ? (
+                          <p className='text-xs text-green-600 font-medium mt-1'>✔ Wholesale price applied</p>
+                        ) : (
+                          <p className='text-xs text-rose-600 font-medium mt-1'>⚠️ Add {(product.minimumWholesaleQuantity || 10) - quantity} more to qualify</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -460,14 +467,30 @@ const QuickViewModal = ({ isOpen, product, onClose }) => {
                     +
                   </button>
                 </div>
-                <button
-                  onClick={handleAddToCart}
-                  disabled={displayStock === 0 || isAdding}
-                  className='flex-1 bg-gradient-to-r from-rose-600 to-rose-700 text-white font-medium py-3 rounded-lg hover:from-rose-700 hover:to-rose-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-                >
-                  <i className='ri-shopping-bag-line'></i>
-                  {isAdding ? 'Adding...' : 'Add to Cart'}
-                </button>
+                {displayStock === 0 ? (
+                  <button
+                    disabled
+                    className='flex-1 bg-neutral-300 text-neutral-500 font-medium py-3 rounded-lg cursor-not-allowed flex items-center justify-center gap-2'
+                  >
+                    OUT OF STOCK
+                  </button>
+                ) : userProfile?.role === 'wholesale' && userProfile?.isApproved && quantity < (product.minimumWholesaleQuantity || 10) ? (
+                  <button
+                    disabled
+                    className='flex-1 bg-neutral-300 text-neutral-500 font-medium py-3 rounded-lg cursor-not-allowed flex items-center justify-center gap-2'
+                  >
+                    ADD {(product.minimumWholesaleQuantity || 10) - quantity} MORE TO QUALIFY
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isAdding}
+                    className='flex-1 bg-gradient-to-r from-rose-600 to-rose-700 text-white font-medium py-3 rounded-lg hover:from-rose-700 hover:to-rose-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                  >
+                    <i className='ri-shopping-bag-line'></i>
+                    {isAdding ? 'Adding...' : 'Add to Cart'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

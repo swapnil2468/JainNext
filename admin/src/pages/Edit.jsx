@@ -27,6 +27,7 @@ const Edit = ({ token }) => {
   const [stock, setStock] = useState("")
   const [category, setCategory] = useState("String Lights")
   const [bestseller, setBestseller] = useState(false)
+  const [status, setStatus] = useState("active")
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
@@ -261,6 +262,7 @@ const Edit = ({ token }) => {
           setStock(product.stock || 0)
           setCategory(product.category)
           setBestseller(product.bestseller || false)
+          setStatus(product.status || 'active')
           
           // Load variants if they exist
           // Check both hasVariants flag AND if variants array exists with items
@@ -527,6 +529,7 @@ const Edit = ({ token }) => {
 
       formData.append("category", category)
       formData.append("bestseller", bestseller)
+      formData.append("status", status)
 
       // Add specifications
       Object.keys(specifications).forEach(key => {
@@ -1211,6 +1214,19 @@ const Edit = ({ token }) => {
           </div>
             </>
           )}
+
+          {/* Product Status Box - Always Visible */}
+          <div className='bg-white rounded-2xl p-6'>
+            <h3 className='text-lg font-semibold mb-4 text-gray-900'>Product Status</h3>
+            <select 
+              onChange={(e) => { setStatus(e.target.value); setIsDirty(true) }} 
+              value={status} 
+              className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500'
+            >
+              <option value='active'>Active</option>
+              <option value='draft'>Draft</option>
+            </select>
+          </div>
         </div>
       </div>
 

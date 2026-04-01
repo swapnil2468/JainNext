@@ -139,6 +139,7 @@ const applyForWholesale = async (req, res) => {
         // Update user to wholesale role with pending approval
         user.role = 'wholesale';
         user.isApproved = false;
+        user.isRejected = false;
         user.businessName = businessName;
         user.gstNumber = gstNumber;
         user.businessPhone = businessPhone;

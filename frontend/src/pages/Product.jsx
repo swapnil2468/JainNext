@@ -251,9 +251,12 @@ const Product = () => {
   const displayPrice = hasVariants && selectedVariant?.price
     ? selectedVariant.price
     : (productData.retailPrice || productData.price)
-  const displayCompareAtPrice = hasVariants && selectedVariant?.compareAtPrice
-    ? selectedVariant.compareAtPrice
-    : productData.compareAtPrice
+  // Hide compare at price for wholesale users
+  const displayCompareAtPrice = userProfile?.role === 'wholesale' && userProfile?.isApproved
+    ? null
+    : (hasVariants && selectedVariant?.compareAtPrice
+      ? selectedVariant.compareAtPrice
+      : productData.compareAtPrice)
   const displayStock = hasVariants && selectedVariant
     ? selectedVariant.stock
     : productData.stock
@@ -679,6 +682,13 @@ const Product = () => {
                 className='w-full bg-neutral-300 text-neutral-500 px-8 py-4 rounded-xl font-semibold cursor-not-allowed text-sm'
               >
                 OUT OF STOCK
+              </button>
+            ) : userProfile?.role === 'wholesale' && userProfile?.isApproved && quantity < (productData.minimumWholesaleQuantity || 10) ? (
+              <button
+                disabled
+                className='w-full bg-neutral-300 text-neutral-500 px-8 py-4 rounded-xl font-semibold cursor-not-allowed text-sm'
+              >
+                ADD {(productData.minimumWholesaleQuantity || 10) - quantity} MORE TO QUALIFY
               </button>
             ) : (
               <div className='flex gap-3'>

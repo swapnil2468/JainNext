@@ -337,7 +337,7 @@ const singleProduct = async (req, res) => {
 // function for update product
 const updateProduct = async (req, res) => {
     try {
-        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, bestseller, stock, hasVariants } = req.body
+        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, bestseller, stock, hasVariants, status } = req.body
         const variantTypes = JSON.parse(req.body.variantTypes || '[]')
         
         let updateData = {
@@ -348,7 +348,8 @@ const updateProduct = async (req, res) => {
             useCases: useCases || "",
             minimumWholesaleQuantity: minimumWholesaleQuantity ? Number(minimumWholesaleQuantity) : 10,
             hasVariants: hasVariants === 'true' || hasVariants === true,
-            variantTypes
+            variantTypes,
+            status: status || 'active'
         }
 
         // Regenerate slug if name changed

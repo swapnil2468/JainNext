@@ -6,11 +6,13 @@ import { toast } from 'react-toastify';
 
 const Cart = () => {
 
-  const { products, currency, cartItems, updateQuantity, navigate, getProductPrice, canUseWholesalePrice } = useContext(ShopContext);
+  const { products, currency, cartItems, updateQuantity, navigate, getProductPrice, canUseWholesalePrice, userProfile } = useContext(ShopContext);
 
   const [cartData, setCartData] = useState([]);
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockIssues, setStockIssues] = useState([]);
+  const [showWholesaleModal, setShowWholesaleModal] = useState(false);
+  const [wholesaleIssues, setWholesaleIssues] = useState([]);
 
   useEffect(() => {
     // Build cartData from both cartItems and products
@@ -59,7 +61,43 @@ const Cart = () => {
   }, [cartItems, products])
 
   const handleCheckoutClick = () => {
-    // Validate stock before proceeding to checkout
+    // First validate wholesale minimum quantities
+    let wholesaleValidationIssues = [];
+    
+    if (userProfile?.role === 'wholesale' && userProfile?.isApproved) {
+      for (const item of cartData) {
+        const product = products.find(p => p._id === item._id);
+        if (product) {
+          const minQty = product.minimumWholesaleQuantity || 10;
+          let variantDisplayName = product.name;
+          
+          if (Object.keys(item.variantAttributes).length > 0 && product.variants?.length > 0) {
+            const attrArray = Object.entries(item.variantAttributes)
+              .map(([_, value]) => value)
+              .join(' - ');
+            variantDisplayName = `${product.name} - ${attrArray}`;
+          }
+          
+          if (item.quantity < minQty) {
+            wholesaleValidationIssues.push({
+              id: item.cartKey,
+              name: variantDisplayName,
+              currentQty: item.quantity,
+              requiredQty: minQty,
+              shortBy: minQty - item.quantity
+            });
+          }
+        }
+      }
+      
+      if (wholesaleValidationIssues.length > 0) {
+        setWholesaleIssues(wholesaleValidationIssues);
+        setShowWholesaleModal(true);
+        return;
+      }
+    }
+    
+    // Then validate stock
     let stockValidationIssues = [];
     
     for (const item of cartData) {
@@ -180,6 +218,51 @@ const Cart = () => {
               onClick={handleStockUpdate}
             >
               Update &amp; Proceed
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Wholesale Quantity Validation Modal */}
+    {showWholesaleModal && (
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowWholesaleModal(false)}>
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          {/* Body */}
+          <div className="px-6 pt-8 pb-4 text-center">
+            {/* Icon */}
+            <div className="w-14 h-14 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Wholesale Minimum Quantity Required</h3>
+            <p className="text-sm text-gray-500 mb-4">The following items don't meet the minimum wholesale quantity:</p>
+
+            {/* Issue list */}
+            <div className="space-y-2 text-left mb-4 max-h-64 overflow-y-auto">
+              {wholesaleIssues.map((issue, index) => (
+                <div key={index} className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+                  <p className="font-medium text-gray-800 text-sm">{issue.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    In cart: <span className="font-semibold text-orange-600">{issue.currentQty}</span>
+                    &nbsp;·&nbsp; Required: <span className="font-semibold text-orange-700">{issue.requiredQty}</span>
+                  </p>
+                  <p className="text-xs text-orange-600 mt-1 font-medium">Add {issue.shortBy} more to qualify</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-gray-500 mb-4">Please increase quantities to meet the minimum requirements.</p>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 flex gap-2 px-6 py-4">
+            <button
+              onClick={() => setShowWholesaleModal(false)}
+              className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-colors duration-150 text-sm"
+            >
+              Continue Editing
             </button>
           </div>
         </div>
@@ -314,6 +397,9 @@ const Cart = () => {
                           )}
                           {canUseWholesalePrice(productData, item.quantity) && (
                             <span className='text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full'>Wholesale</span>
+                          )}
+                          {userProfile?.role === 'wholesale' && userProfile?.isApproved && item.quantity < (productData.minimumWholesaleQuantity || 10) && (
+                            <span className='text-xs text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded-full'>⚠️ Add {(productData.minimumWholesaleQuantity || 10) - item.quantity} more</span>
                           )}
                         </div>
                       </div>

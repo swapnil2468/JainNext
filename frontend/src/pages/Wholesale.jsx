@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
 };
 
 const Wholesale = () => {
-  const { backendUrl, token, navigate, userProfile } = useContext(ShopContext);
+  const { backendUrl, token, navigate, userProfile, products, currency } = useContext(ShopContext);
   const [wholesaleFormData, setWholesaleFormData] = useState({
     businessName: '',
     gstNumber: '',
@@ -22,6 +22,19 @@ const Wholesale = () => {
     businessAddress: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  // Get up to 8 products that have wholesale price set
+  const wholesaleProducts = products
+    .filter(p => {
+      // For variant products check if any variant has wholesale price
+      if (p.variants && p.variants.length > 0) {
+        return p.variants.some(v => v.wholesalePrice)
+      }
+      // For non-variant products check wholesalePrice field
+      return p.wholesalePrice
+    })
+    .slice(0, 8)
 
   const handleInputChange = (e) => {
     setWholesaleFormData({ ...wholesaleFormData, [e.target.name]: e.target.value });
@@ -47,8 +60,17 @@ const Wholesale = () => {
 
       if (response.data.success) {
         toast.success(response.data.message);
+        // Reset form and show state
+        setWholesaleFormData({
+          businessName: '',
+          gstNumber: '',
+          businessPhone: '',
+          businessAddress: ''
+        });
+        setShowForm(false);
+        // Give a moment for the toast to display
         setTimeout(() => {
-          navigate('/profile');
+          window.location.reload();
         }, 2000);
       } else {
         toast.error(response.data.message);
@@ -130,6 +152,97 @@ const Wholesale = () => {
               </div>
             </div>
 
+            {/* Product Savings Showcase */}
+            {wholesaleProducts.length > 0 && (
+              <div className='mb-20'>
+                <div className='text-center mb-12'>
+                  <h2 className='text-4xl font-light text-neutral-900'>
+                    See Your <span className='font-medium text-rose-600'>Savings</span>
+                  </h2>
+                  <div className='w-16 h-0.5 bg-rose-600 mx-auto mt-3 mb-3'></div>
+                  <p className='text-neutral-600'>Real products with real savings — apply for wholesale to unlock these prices</p>
+                </div>
+
+                <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6'>
+                  {wholesaleProducts.map((product, i) => {
+                    // Get prices based on variant or non-variant
+                    const firstVariant = product.variants && product.variants.length > 0
+                      ? product.variants.find(v => v.wholesalePrice) || product.variants[0]
+                      : null
+
+                    const retailPrice = firstVariant?.price || product.retailPrice || product.price
+                    const wholesalePrice = firstVariant?.wholesalePrice || product.wholesalePrice
+                    const displayImage = firstVariant?.images?.[0] || product.image?.[0]
+                    const savings = retailPrice - wholesalePrice
+                    const savingsPercent = Math.round((savings / retailPrice) * 100)
+                    const minQty = product.minimumWholesaleQuantity || 10
+
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => { navigate(`/product/${product.slug || product._id}`); window.scrollTo(0, 0) }}
+                        className='group bg-white rounded-2xl border border-neutral-200/60 overflow-hidden hover:shadow-xl hover:shadow-rose-900/10 hover:-translate-y-1 hover:border-rose-200 transition-all duration-300 cursor-pointer'
+                      >
+                        {/* Product Image */}
+                        <div className='relative aspect-square overflow-hidden bg-neutral-50'>
+                          <img
+                            src={displayImage}
+                            alt={product.name}
+                            className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
+                            loading='lazy'
+                          />
+                          {/* Savings Badge */}
+                          <div className='absolute top-3 right-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg'>
+                            Save {savingsPercent}%
+                          </div>
+                        </div>
+
+                        {/* Product Info */}
+                        <div className='p-4'>
+                          <p className='font-medium text-neutral-900 text-sm line-clamp-2 mb-3'>{product.name}</p>
+
+                          {/* Price Comparison */}
+                          <div className='space-y-1.5 mb-3'>
+                            <div className='flex items-center justify-between'>
+                              <span className='text-xs text-neutral-500'>Retail Price</span>
+                              <span className='text-sm text-neutral-400 line-through'>{currency}{retailPrice}</span>
+                            </div>
+                            <div className='flex items-center justify-between'>
+                              <span className='text-xs font-semibold text-green-700'>Wholesale Price</span>
+                              <span className='text-sm font-bold text-green-700'>{currency}{wholesalePrice}</span>
+                            </div>
+                            <div className='flex items-center justify-between pt-1.5 border-t border-neutral-100'>
+                              <span className='text-xs text-rose-600 font-medium'>You Save</span>
+                              <span className='text-sm font-bold text-rose-600'>{currency}{savings} per unit</span>
+                            </div>
+                          </div>
+
+                          {/* Min Qty */}
+                          <div className='bg-neutral-50 rounded-lg px-3 py-2 flex items-center justify-between'>
+                            <span className='text-xs text-neutral-500'>Min. Order</span>
+                            <span className='text-xs font-semibold text-neutral-700'>{minQty} units</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* CTA below products */}
+                <div className='text-center mt-10'>
+                  <p className='text-neutral-600 mb-4 text-sm'>
+                    These are just a few examples — wholesale pricing applies across our entire catalog
+                  </p>
+                  <button
+                    onClick={() => { navigate('/collection'); window.scrollTo(0, 0) }}
+                    className='px-6 py-3 border-2 border-rose-600 text-rose-600 rounded-full text-sm font-medium hover:bg-rose-50 transition-all'
+                  >
+                    Browse Full Collection
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Who Can Apply */}
             <div className='mb-20 bg-gradient-to-br from-rose-50/60 to-orange-50/30 rounded-3xl p-10 border border-rose-100 shadow-sm'>
               <h2 className='text-3xl font-light text-neutral-900 text-center mb-10'>Who Can <span className='font-medium text-rose-600'>Apply?</span></h2>
@@ -161,7 +274,21 @@ const Wholesale = () => {
                 <p className='text-neutral-600'>Fill out the form below and we'll review your application within 24-48 hours</p>
               </div>
 
-              {userProfile?.role === 'wholesale' && userProfile?.isApproved ? (
+              {userProfile?.role === 'wholesale' && userProfile?.isRejected && !showForm ? (
+                <div className='bg-white rounded-2xl border border-orange-200 shadow-sm p-10 text-center'>
+                  <div className='w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6'>
+                    <i className='ri-close-circle-line text-orange-500 text-4xl'></i>
+                  </div>
+                  <h3 className='text-2xl font-light text-neutral-900 mb-2'>Application <span className='font-medium text-orange-600'>Rejected</span></h3>
+                  <p className='text-neutral-600 mb-8'>Your wholesale application has been rejected. Please review your information and try again.</p>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className='bg-gradient-to-r from-orange-600 to-orange-700 text-white px-8 py-4 rounded-full font-medium hover:from-orange-700 hover:to-orange-800 transition-all hover:shadow-lg hover:-translate-y-0.5'
+                  >
+                    Review & Reapply
+                  </button>
+                </div>
+              ) : userProfile?.role === 'wholesale' && userProfile?.isApproved ? (
                 <div className='bg-white rounded-2xl border border-green-200 shadow-sm p-10 text-center'>
                   <div className='w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6'>
                     <i className='ri-checkbox-circle-line text-green-600 text-4xl'></i>
@@ -175,7 +302,7 @@ const Wholesale = () => {
                     Start Shopping
                   </button>
                 </div>
-              ) : userProfile?.role === 'wholesale' && !userProfile?.isApproved ? (
+              ) : userProfile?.role === 'wholesale' && !userProfile?.isApproved && !showForm ? (
                 <div className='bg-white rounded-2xl border border-neutral-200 shadow-sm p-10 text-center'>
                   <div className='w-20 h-20 bg-neutral-50 rounded-full flex items-center justify-center mx-auto mb-6'>
                     <i className='ri-time-line text-neutral-400 text-4xl'></i>
@@ -244,6 +371,15 @@ const Wholesale = () => {
                     >
                       {submitting ? 'Submitting Application...' : 'Submit Wholesale Application'}
                     </button>
+                    {showForm && userProfile?.role === 'wholesale' && userProfile?.isRejected && (
+                      <button
+                        type='button'
+                        onClick={() => setShowForm(false)}
+                        className='w-full bg-neutral-200 text-neutral-700 py-4 rounded-xl font-medium text-sm hover:bg-neutral-300 transition-all'
+                      >
+                        Go Back
+                      </button>
+                    )}
                     <p className='text-xs text-neutral-400 text-center'>
                       By submitting this form, you agree to our terms and conditions for wholesale customers.
                     </p>
