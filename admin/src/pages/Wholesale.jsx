@@ -247,11 +247,11 @@ const Wholesale = ({ token }) => {
           <>
             {/* Table Header */}
             <div className='hidden md:grid grid-cols-[2fr_1.2fr_1.2fr_1.3fr_1.3fr] gap-4 items-center bg-gray-50 border-b border-gray-200 px-6 py-4'>
-              <p className='font-semibold text-base text-[#64748B] text-xs leading-4 tracking-wider antialiased'>NAME & CONTACT</p>
-              <p className='font-semibold text-base text-[#64748B] text-xs leading-4 tracking-wider antialiased'>BUSINESS ENTITY</p>
-              <p className='font-semibold text-base text-[#64748B] text-xs leading-4 tracking-wider antialiased'>GST DETAILS</p>
-              <p className='font-semibold text-base text-[#64748B] text-xs leading-4 tracking-wider antialiased'>STATUS</p>
-              <p className='font-semibold text-base text-[#64748B] text-xs leading-4 tracking-wider antialiased text-right pr-2'>ACTIONS</p>
+              <p className='font-semibold text-xs text-[#64748B] leading-4 tracking-wider antialiased'>NAME & CONTACT</p>
+              <p className='font-semibold text-xs text-[#64748B] leading-4 tracking-wider antialiased'>BUSINESS ENTITY</p>
+              <p className='font-semibold text-xs text-[#64748B] leading-4 tracking-wider antialiased'>GST DETAILS</p>
+              <p className='font-semibold text-xs text-[#64748B] leading-4 tracking-wider antialiased'>STATUS</p>
+              <p className='font-semibold text-xs text-[#64748B] leading-4 tracking-wider antialiased text-right pr-2'>ACTIONS</p>
             </div>
 
             {/* Table Rows */}
