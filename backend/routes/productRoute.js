@@ -1,6 +1,6 @@
 import express from 'express'
 import { listProducts, addProduct, removeProduct, singleProduct, updateProduct, updateProductStatus } from '../controllers/productController.js'
-import upload from '../middleware/multer.js';
+import upload, { handleMulterError } from '../middleware/multer.js';
 import adminAuth from '../middleware/adminAuth.js';
 
 const productRouter = express.Router();
@@ -19,8 +19,8 @@ const uploadFields = [
   ...variantImageFields
 ]
 
-productRouter.post('/add',adminAuth,upload.fields(uploadFields),addProduct);
-productRouter.post('/update',adminAuth,upload.fields(uploadFields),updateProduct);
+productRouter.post('/add',adminAuth,handleMulterError(upload.fields(uploadFields)),addProduct);
+productRouter.post('/update',adminAuth,handleMulterError(upload.fields(uploadFields)),updateProduct);
 productRouter.post('/updateStatus',adminAuth,updateProductStatus);
 productRouter.post('/remove',adminAuth,removeProduct);
 productRouter.post('/single',singleProduct);

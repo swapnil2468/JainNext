@@ -1,7 +1,7 @@
 import express from 'express';
 import { getProductReviews, addReview, getUserReview, deleteReview, uploadReviewImages, getProductStats } from '../controllers/reviewController.js';
 import authUser from '../middleware/auth.js';
-import upload from '../middleware/multer.js';
+import upload, { handleMulterError } from '../middleware/multer.js';
 
 const reviewRouter = express.Router();
 
@@ -16,6 +16,6 @@ reviewRouter.post('/user', authUser, getUserReview);
 // Delete a review (user must be authenticated)
 reviewRouter.post('/delete', authUser, deleteReview);
 // Upload review images
-reviewRouter.post('/upload-images', authUser, upload.array('images', 4), uploadReviewImages);
+reviewRouter.post('/upload-images', authUser, handleMulterError(upload.array('images', 4)), uploadReviewImages);
 
 export default reviewRouter;

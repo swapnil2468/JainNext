@@ -3,16 +3,41 @@ import { ShopContext } from '../context/ShopContext'
 import { assets } from '../assets/assets';
 import CartTotal from '../components/CartTotal';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 
 const Cart = () => {
 
-  const { products, currency, cartItems, updateQuantity, navigate, getProductPrice, canUseWholesalePrice, userProfile } = useContext(ShopContext);
+  const { products, currency, cartItems, updateQuantity, navigate, getProductPrice, canUseWholesalePrice, userProfile, backendUrl, token } = useContext(ShopContext);
 
   const [cartData, setCartData] = useState([]);
   const [showStockModal, setShowStockModal] = useState(false);
-  const [stockIssues, setStockIssues] = useState([]);
+  const [stockIssues, setStockIssues] = useState({ outOfStock: [], reducedQty: [] });
   const [showWholesaleModal, setShowWholesaleModal] = useState(false);
   const [wholesaleIssues, setWholesaleIssues] = useState([]);
+  const [showDeletedNotification, setShowDeletedNotification] = useState(false);
+
+  useEffect(() => {
+    // Check if user has deleted items and show notification once
+    if (userProfile?.hasDeletedCartItem && !showDeletedNotification) {
+      setShowDeletedNotification(true);
+      // Clear the flag after 5 seconds or when dismissed
+      const timer = setTimeout(() => clearDeletedNotificationFlag(), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [userProfile?.hasDeletedCartItem]);
+
+  const clearDeletedNotificationFlag = async () => {
+    if (!userProfile?._id) return;
+    try {
+      await axios.post(
+        backendUrl + '/api/user/clear-deleted-notification',
+        { userId: userProfile._id },
+        { headers: { token } }
+      );
+    } catch (error) {
+      console.error('Failed to clear notification:', error);
+    }
+  };
 
   useEffect(() => {
     // Build cartData from both cartItems and products
@@ -60,45 +85,12 @@ const Cart = () => {
     setCartData(tempData);
   }, [cartItems, products])
 
-  const handleCheckoutClick = () => {
-    // First validate wholesale minimum quantities
-    let wholesaleValidationIssues = [];
-    
-    if (userProfile?.role === 'wholesale' && userProfile?.isApproved) {
-      for (const item of cartData) {
-        const product = products.find(p => p._id === item._id);
-        if (product) {
-          const minQty = product.minimumWholesaleQuantity || 10;
-          let variantDisplayName = product.name;
-          
-          if (Object.keys(item.variantAttributes).length > 0 && product.variants?.length > 0) {
-            const attrArray = Object.entries(item.variantAttributes)
-              .map(([_, value]) => value)
-              .join(' - ');
-            variantDisplayName = `${product.name} - ${attrArray}`;
-          }
-          
-          if (item.quantity < minQty) {
-            wholesaleValidationIssues.push({
-              id: item.cartKey,
-              name: variantDisplayName,
-              currentQty: item.quantity,
-              requiredQty: minQty,
-              shortBy: minQty - item.quantity
-            });
-          }
-        }
-      }
-      
-      if (wholesaleValidationIssues.length > 0) {
-        setWholesaleIssues(wholesaleValidationIssues);
-        setShowWholesaleModal(true);
-        return;
-      }
-    }
-    
-    // Then validate stock
-    let stockValidationIssues = [];
+  // Auto-validate stock on page load
+  useEffect(() => {
+    if (cartData.length === 0 || products.length === 0) return;
+
+    let outOfStockItems = [];
+    let reducedQtyItems = [];
     
     for (const item of cartData) {
       const product = products.find(p => p._id === item._id);
@@ -128,47 +120,172 @@ const Cart = () => {
         }
         
         if (item.quantity > availableStock) {
-          stockValidationIssues.push({
-            id: item.cartKey,
-            name: variantDisplayName,
-            requestedQty: item.quantity,
-            availableStock: availableStock
-          });
+          // Separate into two categories
+          if (availableStock === 0) {
+            // Out of stock - will be removed
+            outOfStockItems.push({
+              id: item.cartKey,
+              name: variantDisplayName
+            });
+          } else {
+            // Stock reduced but still available
+            reducedQtyItems.push({
+              id: item.cartKey,
+              name: variantDisplayName,
+              requestedQty: item.quantity,
+              availableStock: availableStock
+            });
+          }
         }
       }
     }
     
-    if (stockValidationIssues.length > 0) {
-      setStockIssues(stockValidationIssues);
+    // Auto-remove out of stock items
+    if (outOfStockItems.length > 0) {
+      outOfStockItems.forEach(item => {
+        updateQuantity(item.id, 0);
+      });
+    }
+
+    // Auto-reduce qty for partially reduced stock
+    if (reducedQtyItems.length > 0) {
+      reducedQtyItems.forEach(item => {
+        updateQuantity(item.id, item.availableStock);
+      });
+    }
+
+    // Show modal if any issues found
+    if (outOfStockItems.length > 0 || reducedQtyItems.length > 0) {
+      setStockIssues({
+        outOfStock: outOfStockItems,
+        reducedQty: reducedQtyItems
+      });
       setShowStockModal(true);
-    } else {
-      navigate('/place-order');
     }
-  };
+  }, [cartData, products])
 
-  const handleStockUpdate = () => {
-    // Update cart quantities to available stock
-    stockIssues.forEach(issue => {
-      updateQuantity(issue.id, issue.availableStock);
-    });
-    setShowStockModal(false);
+  const handleCheckoutClick = async () => {
+    // Fetch fresh product data to get latest stock info
+    try {
+      const response = await axios.get(backendUrl + '/api/product/list', {
+        headers: { token }
+      });
+      
+      if (!response.data.success) {
+        toast.error('Failed to verify stock. Please try again.');
+        return;
+      }
+      
+      const freshProducts = response.data.products;
 
-    // Check if any items remain after the stock correction
-    const hasRemainingItems = cartData.some(item => {
-      const issue = stockIssues.find(i => i.id === item.cartKey);
-      return issue ? issue.availableStock > 0 : true;
-    });
+      // First validate wholesale minimum quantities
+      let wholesaleValidationIssues = [];
+      
+      if (userProfile?.role === 'wholesale' && userProfile?.isApproved) {
+        for (const item of cartData) {
+          const product = freshProducts.find(p => p._id === item._id);
+          if (product) {
+            const minQty = product.minimumWholesaleQuantity || 10;
+            let variantDisplayName = product.name;
+            
+            if (Object.keys(item.variantAttributes).length > 0 && product.variants?.length > 0) {
+              const attrArray = Object.entries(item.variantAttributes)
+                .map(([_, value]) => value)
+                .join(' - ');
+              variantDisplayName = `${product.name} - ${attrArray}`;
+            }
+            
+            if (item.quantity < minQty) {
+              wholesaleValidationIssues.push({
+                id: item.cartKey,
+                name: variantDisplayName,
+                currentQty: item.quantity,
+                requiredQty: minQty,
+                shortBy: minQty - item.quantity
+              });
+            }
+          }
+        }
+        
+        if (wholesaleValidationIssues.length > 0) {
+          setWholesaleIssues(wholesaleValidationIssues);
+          setShowWholesaleModal(true);
+          return;
+        }
+      }
+      
+      // Then validate stock against fresh product data
+      let outOfStockItems = [];
+      let reducedQtyItems = [];
+      
+      for (const item of cartData) {
+        const product = freshProducts.find(p => p._id === item._id);
+        if (product) {
+          // Check variant stock if variant exists
+          let availableStock = product.stock;
+          let variantDisplayName = product.name;
+          
+          if (Object.keys(item.variantAttributes).length > 0 && product.variants?.length > 0) {
+            // Find matching variant based on ALL attributes
+            const matchingVariant = product.variants.find(v => {
+              for (const [type, value] of Object.entries(item.variantAttributes)) {
+                const variantValue = type === 'color' ? (v.color || v.attributes?.color) : v.attributes?.[type];
+                if (variantValue !== value) return false;
+              }
+              return true;
+            });
+            
+            if (matchingVariant) {
+              availableStock = matchingVariant.stock || 0;
+              // Format variant display name (e.g., "Green - 5m")
+              const attrArray = Object.entries(item.variantAttributes)
+                .map(([_, value]) => value)
+                .join(' - ');
+              variantDisplayName = `${product.name} - ${attrArray}`;
+            }
+          }
+          
+          if (item.quantity > availableStock) {
+            if (availableStock === 0) {
+              outOfStockItems.push({
+                id: item.cartKey,
+                name: variantDisplayName
+              });
+            } else {
+              reducedQtyItems.push({
+                id: item.cartKey,
+                name: variantDisplayName,
+                requestedQty: item.quantity,
+                availableStock: availableStock
+              });
+            }
+          }
+        }
+      }
+      
+      if (outOfStockItems.length > 0 || reducedQtyItems.length > 0) {
+        // Auto-remove out of stock items
+        outOfStockItems.forEach(item => {
+          updateQuantity(item.id, 0);
+        });
+        
+        // Auto-reduce qty
+        reducedQtyItems.forEach(item => {
+          updateQuantity(item.id, item.availableStock);
+        });
 
-    if (!hasRemainingItems) {
-      toast.info('All items in your cart are out of stock and have been removed.');
-      return;
+        setStockIssues({
+          outOfStock: outOfStockItems,
+          reducedQty: reducedQtyItems
+        });
+        setShowStockModal(true);
+      } else {
+        navigate('/place-order');
+      }
+    } catch (error) {
+      toast.error('Error checking stock availability');
+      console.error(error);
     }
-
-    toast.success('Cart updated! You can now proceed to checkout.');
-    // Navigate to checkout after a brief delay to show the update
-    setTimeout(() => {
-      navigate('/place-order');
-    }, 800);
   };
 
   return (
@@ -180,26 +297,43 @@ const Cart = () => {
           {/* Body */}
           <div className="px-6 pt-8 pb-4 text-center">
             {/* Icon */}
-            <div className="w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-14 h-14 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-gray-900 mb-1">Limited Stock Available</h3>
-            <p className="text-sm text-gray-500 mb-4">Some items in your cart exceed available stock:</p>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Stock Update</h3>
+            <p className="text-sm text-gray-500 mb-4">Your cart has been adjusted due to stock changes:</p>
 
-            {/* Issue list */}
-            <div className="space-y-2 text-left mb-2">
-              {stockIssues.map((issue, index) => (
-                <div key={index} className="bg-neutral-50 border border-neutral-100 rounded-xl p-3">
-                  <p className="font-medium text-gray-800 text-sm">{issue.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    In cart: <span className="font-semibold text-red-500">{issue.requestedQty}</span>
-                    &nbsp;·&nbsp; Available: <span className="font-semibold text-green-600">{issue.availableStock}</span>
-                  </p>
+            {/* Out of Stock Items */}
+            {typeof stockIssues === 'object' && stockIssues.outOfStock && stockIssues.outOfStock.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-rose-700 text-left mb-2">Removed (Out of Stock):</p>
+                <div className="space-y-2">
+                  {stockIssues.outOfStock.map((item, index) => (
+                    <div key={index} className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-left">
+                      <p className="font-medium text-rose-900 text-sm">{item.name}</p>
+                      <p className="text-xs text-rose-700 mt-1">This product is out of stock and has been removed from your cart</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+
+            {/* Reduced Qty Items */}
+            {typeof stockIssues === 'object' && stockIssues.reducedQty && stockIssues.reducedQty.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-amber-700 text-left mb-2">Quantity Adjusted:</p>
+                <div className="space-y-2">
+                  {stockIssues.reducedQty.map((item, index) => (
+                    <div key={index} className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left">
+                      <p className="font-medium text-amber-900 text-sm">{item.name}</p>
+                      <p className="text-xs text-amber-700 mt-1">Quantity has been reduced to <span className="font-semibold">{item.availableStock}</span> (available stock)</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Divider */}
@@ -208,16 +342,19 @@ const Cart = () => {
           {/* Actions */}
           <div className="flex">
             <button
-              className="flex-1 py-3.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors duration-150 border-r border-neutral-100"
-              onClick={() => setShowStockModal(false)}
+              className="flex-1 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 transition-all"
+              onClick={() => {
+                setShowStockModal(false);
+                // Check if any items remain after adjustments
+                const hasRemainingItems = cartData.some(item => item.quantity > 0);
+                if (hasRemainingItems) {
+                  navigate('/place-order');
+                } else {
+                  toast.info('All items in your cart are out of stock.');
+                }
+              }}
             >
-              Cancel
-            </button>
-            <button
-              className="flex-1 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 transition-all"
-              onClick={handleStockUpdate}
-            >
-              Update &amp; Proceed
+              Proceed to Checkout
             </button>
           </div>
         </div>
@@ -278,6 +415,30 @@ const Cart = () => {
         </h1>
         <div className='w-16 h-0.5 bg-rose-600 mt-2'></div>
       </div>
+
+      {/* Deleted Product Notification */}
+      {showDeletedNotification && (
+        <div className='mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3'>
+          <svg className='w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z' />
+          </svg>
+          <div className='flex-1'>
+            <h3 className='font-semibold text-amber-900'>Product No Longer Available</h3>
+            <p className='text-sm text-amber-700 mt-1'>One or more items in your cart have been removed by the admin. We've cleaned them up for you.</p>
+          </div>
+          <button
+            onClick={() => {
+              setShowDeletedNotification(false);
+              clearDeletedNotificationFlag();
+            }}
+            className='flex-shrink-0 text-amber-600 hover:text-amber-800 transition-colors'
+          >
+            <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {cartData.length === 0 ? (
         <div className='flex flex-col items-center justify-center py-32 max-w-2xl mx-auto'>

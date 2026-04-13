@@ -165,6 +165,7 @@ const addProduct = async (req, res) => {
 
         const productData = {
             name,
+            sku: req.body.sku || "",
             slug: await generateSlug(name),
             description,
             category,
@@ -238,7 +239,7 @@ const listProducts = async (req, res) => {
 // function for removing product
 const removeProduct = async (req, res) => {
     try {
-        const productId = req.body.id;
+        const { id: productId, forceDelete } = req.body;
         
         // Get product to access all images (main + variants) before deletion
         const product = await productModel.findById(productId);
@@ -247,7 +248,54 @@ const removeProduct = async (req, res) => {
             return res.json({ success: false, message: "Product not found" });
         }
         
-        // Delete main product images from Cloudinary
+        // STEP 1: Check if product is in any active user carts
+        const usersWithProduct = await userModel.find({
+            $or: [
+                { [`cartData.${productId}`]: { $exists: true, $gt: 0 } },
+                { 'cartData': { $regex: `"${productId}__(.*)"` } }
+            ]
+        }).select('_id email cartData');
+        
+        const cartCount = usersWithProduct.length;
+        
+        // If product is in carts and not force deleting, return warning
+        if (cartCount > 0 && !forceDelete) {
+            return res.json({ 
+                success: false, 
+                cartWarning: true,
+                cartCount: cartCount,
+                message: `This product is in ${cartCount} user cart${cartCount !== 1 ? 's' : ''}. Delete anyway?`
+            });
+        }
+        
+        // STEP 2: If forceDelete confirmed, remove product from all user carts
+        if (cartCount > 0 && forceDelete) {
+            for (const user of usersWithProduct) {
+                const updatedCartData = { ...user.cartData };
+                let hasDeletedItem = false;
+                
+                // Remove any cart entries with this productId
+                for (const key in updatedCartData) {
+                    if (key === productId || key.startsWith(`${productId}__`)) {
+                        delete updatedCartData[key];
+                        hasDeletedItem = true;
+                    }
+                }
+                
+                // Update user cart and set notification flag
+                if (hasDeletedItem) {
+                    await userModel.findByIdAndUpdate(
+                        user._id, 
+                        { 
+                            cartData: updatedCartData,
+                            hasDeletedCartItem: true
+                        }
+                    );
+                }
+            }
+        }
+        
+        // STEP 3: Delete product images from Cloudinary
         if (product.image && product.image.length > 0) {
             await Promise.all(
                 product.image.map(imageUrl => deleteCloudinaryImage(imageUrl))
@@ -265,16 +313,18 @@ const removeProduct = async (req, res) => {
             }
         }
         
-        // Delete all reviews for this product
+        // STEP 4: Delete all reviews for this product
         await reviewModel.deleteMany({ productId: productId });
         
-        // Delete the product itself
+        // STEP 5: Delete the product itself
         await productModel.findByIdAndDelete(productId);
         
-        res.json({success:true,message:"Product Removed (including all reviews)"})
+        res.json({
+            success: true,
+            message: `Product removed. ${cartCount > 0 ? `Removed from ${cartCount} user cart${cartCount !== 1 ? 's' : ''}.` : ''}`
+        })
 
     } catch (error) {
-
         res.json({ success: false, message: error.message })
     }
 }
@@ -337,11 +387,12 @@ const singleProduct = async (req, res) => {
 // function for update product
 const updateProduct = async (req, res) => {
     try {
-        const { productId, name, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, bestseller, stock, hasVariants, status } = req.body
+        const { productId, name, sku, description, retailPrice, compareAtPrice, useCases, wholesalePrice, minimumWholesaleQuantity, category, bestseller, stock, hasVariants, status } = req.body
         const variantTypes = JSON.parse(req.body.variantTypes || '[]')
         
         let updateData = {
             name,
+            sku: sku || "",
             description,
             category,
             bestseller: bestseller === "true" ? true : false,

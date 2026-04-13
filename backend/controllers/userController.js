@@ -355,4 +355,17 @@ const googleLogin = async (req, res) => {
     }
 }
 
-export { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword, googleLogin }
+// Clear deleted cart item notification
+const clearDeletedNotification = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        await userModel.findByIdAndUpdate(userId, { hasDeletedCartItem: false });
+        
+        res.json({ success: true, message: 'Notification cleared' });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+}
+
+export { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword, googleLogin, clearDeletedNotification }

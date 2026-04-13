@@ -39,13 +39,16 @@ const ProductItem = ({id,slug,image,name,price,wholesalePrice,minimumWholesaleQu
           <p className='text-sm font-medium text-neutral-900 group-hover:text-rose-700 transition-colors duration-200 line-clamp-2'>{name}</p>
           <div>
             {wholesalePrice && userProfile?.role === 'wholesale' && userProfile?.isApproved ? (
-              <div className='text-sm'>
-                <p className='font-medium text-green-700'>{currency}{wholesalePrice} <span className='text-xs text-gray-500'>(Wholesale)</span></p>
-                <p className='text-xs text-gray-500 line-through'>{currency}{displayPrice}</p>
-                <p className='text-xs text-gray-600'>Min qty: {minimumWholesaleQuantity || 10}</p>
+              <div className='space-y-2'>
+                <div className='flex items-baseline gap-2'>
+                  <p className='text-xl font-semibold text-green-700'>{currency}{wholesalePrice}</p>
+                  <span className='inline-block px-2.5 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full'>Wholesale</span>
+                </div>
+                <p className='text-sm text-gray-500 line-through'>{currency}{displayPrice}</p>
+                <p className='text-xs text-gray-600 font-medium'>Min qty: <span className='text-green-700 font-semibold'>{minimumWholesaleQuantity || 10}</span></p>
               </div>
             ) : displayPrice ? (
-              <p className='text-lg font-light text-neutral-900'>{currency}{displayPrice}</p>
+              <p className='text-xl font-semibold text-neutral-900'>{currency}{displayPrice}</p>
             ) : null}
           </div>
           {stock === 0 ? (

@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword, googleLogin } from '../controllers/userController.js';
+import { loginUser, registerUser, adminLogin, getUserProfile, applyForWholesale, getWholesaleUsers, updateWholesaleStatus, removeWholesaleApplication, forgotPassword, resetPassword, googleLogin, clearDeletedNotification } from '../controllers/userController.js';
 import authUser from '../middleware/auth.js';
 import adminAuth from '../middleware/adminAuth.js';
 
@@ -10,6 +10,7 @@ userRouter.post('/login', loginUser)
 userRouter.post('/google-login', googleLogin)
 userRouter.post('/admin', adminLogin)
 userRouter.post('/profile', authUser, getUserProfile)
+userRouter.post('/clear-deleted-notification', authUser, clearDeletedNotification)
 userRouter.post('/forgot-password', forgotPassword)
 userRouter.post('/reset-password', resetPassword)
 

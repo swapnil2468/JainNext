@@ -18,6 +18,7 @@ const List = ({ token }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingRemoveId, setPendingRemoveId] = useState(null)
+  const [cartWarning, setCartWarning] = useState(null) // { count, message }
   const [selectedProducts, setSelectedProducts] = useState(new Set())
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [statusToUpdate, setStatusToUpdate] = useState('active')
@@ -77,20 +78,34 @@ const List = ({ token }) => {
     setShowConfirm(true);
   };
 
-  const removeProduct = async () => {
+  const removeProduct = async (forceDelete = false) => {
     if (!pendingRemoveId) return;
     try {
-      const response = await axios.post(backendUrl + '/api/product/remove', { id: pendingRemoveId }, { headers: { token } })
+      const response = await axios.post(
+        backendUrl + '/api/product/remove',
+        { id: pendingRemoveId, forceDelete },
+        { headers: { token } }
+      );
+
+      // If there's a cart warning and not forcing delete yet
+      if (response.data.cartWarning && !forceDelete) {
+        setCartWarning({ count: response.data.cartCount, message: response.data.message });
+        setShowConfirm(false);
+        return;
+      }
+
+      // Successful deletion
       if (response.data.success) {
-        toast.success(response.data.message)
+        toast.success(response.data.message);
         await fetchList();
       } else {
-        toast.error(response.data.message)
+        toast.error(response.data.message);
       }
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.message);
     } finally {
       setShowConfirm(false);
+      setCartWarning(null);
       setPendingRemoveId(null);
     }
   };
@@ -515,7 +530,6 @@ const List = ({ token }) => {
               />
               <div className='overflow-hidden min-w-0'>
                 <p className='font-medium text-gray-800 text-sm'>{item.name}</p>
-                <p className='text-xs text-gray-500'>{item._id?.substring(0, 8)}</p>
                 {item.isVariant && (
                   <p className='text-xs text-orange-600 font-medium'>
                     {item.variantColor} ({item.variantIndex + 1}/{item.totalVariants})
@@ -527,13 +541,13 @@ const List = ({ token }) => {
             <p className='text-gray-700 text-sm'>{item.category}</p>
 
             <div>
-              <p className='text-base'>
-                <span className='font-semibold text-red-600'>{currency}{item.price || '—'}</span>
-                <span className='text-gray-400 text-xs ml-2'>(Retail)</span>
+              <p className='text-xl font-semibold'>
+                <span className='text-red-600'>{currency}{item.price || '—'}</span>
+                <span className='text-gray-600 text-xs ml-2'>(Retail)</span>
               </p>
-              <p className='text-xs text-gray-500'>
+              <p className='text-xl font-semibold text-gray-700'>
                 <span>{currency}{item.wholesalePrice || '—'}</span>
-                <span className='text-gray-400 ml-2'>(Wholesale)</span>
+                <span className='text-gray-600 text-xs ml-2'>(Wholesale)</span>
               </p>
             </div>
 
@@ -639,6 +653,44 @@ const List = ({ token }) => {
         confirmLabel="Delete"
         confirmClassName="bg-red-600 hover:bg-red-700 text-white font-medium transition-all"
       />
+
+      {/* Cart Warning Modal */}
+      {cartWarning && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 pt-8 pb-6 text-center">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-orange-50">
+                <svg className="w-7 h-7 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Product in Active Carts</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                This product is in <span className="font-semibold">{cartWarning.count}</span> user cart{cartWarning.count !== 1 ? 's' : ''}. 
+                <br /><br />
+                If you delete it, it will be automatically removed from their carts and they'll be notified.
+              </p>
+            </div>
+            <div className="flex gap-3 p-6 bg-gray-50">
+              <button
+                onClick={() => setCartWarning(null)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => removeProduct(true)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Update Modal */}
       {showStatusModal && (

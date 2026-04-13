@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { ShopContext } from '../context/ShopContext';
 import { assets } from '../assets/assets';
+import { renderFormattedText } from '../utils/formatText.jsx';
 
 import RelatedProducts from '../components/RelatedProducts';
 import SpecificationTable from '../components/SpecificationTable';
@@ -353,6 +354,11 @@ const Product = () => {
           {/* Brand Name */}
           {productData.specifications?.brand && (
             <p className='text-sm text-gray-700 font-medium mb-3'>{productData.specifications.brand}</p>
+          )}
+
+          {/* SKU */}
+          {productData.sku && (
+            <p className='text-xs text-gray-600 mb-4'>SKU: {productData.sku}</p>
           )}
 
           {/* Ratings */}
@@ -817,10 +823,10 @@ const Product = () => {
         
         <div className='p-8'>
           {activeTab === 'description' && (
-            <p className='text-neutral-700 leading-relaxed'>{productData.description}</p>
+            <p className='text-neutral-700 leading-relaxed'>{renderFormattedText(productData.description)}</p>
           )}
           {activeTab === 'use-cases' && productData.useCases && (
-            <div className='text-neutral-700 whitespace-pre-line leading-relaxed'>{productData.useCases}</div>
+            <div className='text-neutral-700 whitespace-pre-line leading-relaxed'>{renderFormattedText(productData.useCases)}</div>
           )}
         </div>
       </div>

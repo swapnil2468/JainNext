@@ -18,6 +18,7 @@ const Edit = ({ token }) => {
   const [existingImages, setExistingImages] = useState([])
 
   const [name, setName] = useState("")
+  const [sku, setSku] = useState("")
   const [description, setDescription] = useState("")
   const [retailPrice, setRetailPrice] = useState("")
   const [compareAtPrice, setCompareAtPrice] = useState("")
@@ -224,6 +225,51 @@ const Edit = ({ token }) => {
     setIsDirty(true)
   }
 
+  // Render formatted text with bold support
+  const renderFormattedDescription = () => {
+    const parts = description.split(/\*\*(.*?)\*\*/g);
+    return parts.map((part, index) => 
+      index % 2 === 1 ? <b key={index}>{part}</b> : part
+    );
+  }
+
+  const renderFormattedUseCases = () => {
+    const parts = useCases.split(/\*\*(.*?)\*\*/g);
+    return parts.map((part, index) => 
+      index % 2 === 1 ? <b key={index}>{part}</b> : part
+    );
+  }
+
+  const applyBold = (textareaId, currentValue, setValue) => {
+    const textarea = document.getElementById(textareaId)
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = currentValue.substring(start, end)
+
+    if (start === end) {
+      // No text selected — insert placeholder
+      const newValue = currentValue.substring(0, start) + '**bold text**' + currentValue.substring(end)
+      setValue(newValue)
+      // Focus and select the placeholder text
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + 2, start + 11)
+      }, 0)
+    } else {
+      // Text is selected — wrap it in bold
+      const newValue = currentValue.substring(0, start) + '**' + selectedText + '**' + currentValue.substring(end)
+      setValue(newValue)
+      setIsDirty(true)
+      // Move cursor after the closing **
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(end + 4, end + 4)
+      }, 0)
+    }
+  }
+
   const removeVariant = (index) => {
     setVariants(variants.filter((_, i) => i !== index))
     setIsDirty(true)
@@ -253,6 +299,7 @@ const Edit = ({ token }) => {
         if (response.data.success) {
           const product = response.data.product
           setName(product.name)
+          setSku(product.sku || "")
           setDescription(product.description)
           setRetailPrice(product.retailPrice || product.price || "")
           setCompareAtPrice(product.compareAtPrice || "")
@@ -512,6 +559,7 @@ const Edit = ({ token }) => {
 
       formData.append("productId", productId)
       formData.append("name", name)
+      formData.append("sku", sku)
       formData.append("description", description)
       if (useCases) formData.append("useCases", useCases)
       if (minimumWholesaleQuantity) formData.append("minimumWholesaleQuantity", minimumWholesaleQuantity)
@@ -1058,6 +1106,11 @@ const Edit = ({ token }) => {
               <input onChange={(e) => { setName(e.target.value); setIsDirty(true) }} value={name} className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' type="text" placeholder='e.g. Modern Brass Pendant Light' required/>
             </div>
 
+            <div className='mb-4'>
+              <label className='block text-sm font-medium text-gray-900 mb-2'>Product SKU <span className='text-gray-400 text-xs font-normal'>(Optional)</span></label>
+              <input onChange={(e) => { setSku(e.target.value); setIsDirty(true) }} value={sku} className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500' type="text" placeholder='e.g. SKU-12345' />
+            </div>
+
             <div className='grid grid-cols-2 gap-4 mb-4'>
               <div>
                 <label className='block text-sm font-medium text-gray-900 mb-2'>Category</label>
@@ -1090,15 +1143,52 @@ const Edit = ({ token }) => {
 
               {activeTab === 'description' && (
                 <div>
-                  <label className='block text-sm font-medium text-gray-900 mb-2'>Product Description</label>
-                  <textarea onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }} value={description} className='w-full px-4 py-3 border border-gray-300 rounded-2xl h-32 focus:outline-none focus:ring-2 focus:ring-red-500' placeholder='Describe the product material, design features, and installation requirements...' required/>
+                  <div className='flex items-center justify-between mb-2'>
+                    <label className='block text-sm font-medium text-gray-900'>Product Description</label>
+                    <button
+                      type='button'
+                      onClick={() => applyBold('descriptionTextarea', description, setDescription)}
+                      className='flex items-center gap-1.5 px-3 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-xs font-bold text-gray-700 transition-all'
+                      title='Select text then click to make bold'
+                    >
+                      <span className='font-black text-sm'>B</span>
+                      Bold
+                    </button>
+                  </div>
+                  <textarea
+                    id='descriptionTextarea'
+                    onChange={(e) => { setDescription(e.target.value); setIsDirty(true) }}
+                    value={description}
+                    className='w-full px-4 py-3 border border-gray-300 rounded-lg h-32 focus:outline-none focus:ring-2 focus:ring-red-500'
+                    placeholder='Describe the product...'
+                    required
+                  />
+                  <p className='text-xs text-gray-400 mt-1'>Tip: Select any text and click Bold to make it bold</p>
                 </div>
               )}
 
               {activeTab === 'use-cases' && (
                 <div>
-                  <label className='block text-sm font-medium text-gray-900 mb-2'>Use Cases / Application</label>
-                  <textarea onChange={(e) => { setUseCases(e.target.value); setIsDirty(true) }} value={useCases} className='w-full px-4 py-3 border border-gray-300 rounded-2xl h-32 focus:outline-none focus:ring-2 focus:ring-red-500' placeholder='e.g., Ideal for modern living rooms, hotel lobbies, or high-ceiling dining areas...' />
+                  <div className='flex items-center justify-between mb-2'>
+                    <label className='block text-sm font-medium text-gray-900'>Use Cases / Application</label>
+                    <button
+                      type='button'
+                      onClick={() => applyBold('useCasesTextarea', useCases, setUseCases)}
+                      className='flex items-center gap-1.5 px-3 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-xs font-bold text-gray-700 transition-all'
+                      title='Select text then click to make bold'
+                    >
+                      <span className='font-black text-sm'>B</span>
+                      Bold
+                    </button>
+                  </div>
+                  <textarea
+                    id='useCasesTextarea'
+                    onChange={(e) => { setUseCases(e.target.value); setIsDirty(true) }}
+                    value={useCases}
+                    className='w-full px-4 py-3 border border-gray-300 rounded-lg h-32 focus:outline-none focus:ring-2 focus:ring-red-500'
+                    placeholder='Describe the use cases...'
+                  />
+                  <p className='text-xs text-gray-400 mt-1'>Tip: Select any text and click Bold to make it bold</p>
                 </div>
               )}
             </div>
